@@ -5,13 +5,13 @@ import numpy as np
 import pandas as pd
 import urllib
 
-import wget
 import os
 import requests
 #from KBO import compute_chip
 #from extendOrbit import getOrbit
 #from linkmap import build_kdtree
 from astropy.io import fits
+from astropy.coordinates import Angle
 
 
 ccdWidth = .298   #width of a CCD in degrees
@@ -28,7 +28,9 @@ def findImgs(ra_in, dec_in):
     upper_dec = dec_in + ccdHeight
     lower_dec = dec_in - ccdHeight
 
-    query = "SELECT FILENAME, NITE FROM PROD.IMAGE WHERE RA_CENT BETWEEN " + str(left_ra) + " AND " + str(right_ra) + " AND DEC_CENT BETWEEN"+ str(lower_dec) + " AND " + str(upper_dec) + " AND FILENAME LIKE '%immasked.fits'"
+    query = ("SELECT FILENAME, NITE FROM PROD.IMAGE WHERE RA_CENT BETWEEN " + str(left_ra) + " AND " + str(right_ra) +
+             " AND DEC_CENT BETWEEN "+ str(lower_dec) + " AND " + str(upper_dec) +
+             " AND EXPNUM > 552000 AND FILENAME LIKE '%immasked.fits'")  # Y4 -> expnum > 552000
 
     imglist = conn_desoper.query_to_pandas(query)
 
@@ -42,7 +44,7 @@ def findImgs(ra_in, dec_in):
         pathlist = pathlist.append(path)
 
     #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
-    dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
+    dir = 'FitsFiles'
 
     if not os.path.exists(dir):
         os.mkdir(dir)
@@ -81,8 +83,16 @@ def download_file(url):
 
 
 def ds9cut(fits_filename, ra, dec, side=5):
+    ra_ang = Angle(str(ra) + 'd')
+    dec_ang = Angle(str(dec) + 'd')
+
+    ra_hms = ra_ang.hms
+    dec_dms = dec_ang.dms
+
+    ra_str = str(ra_hms[0]) + ':' + str(ra_hms[1]) + ':' + str(ra_hms[2])
+    dec_str = str(dec_dms[0]) + ':' + str(dec_dms[1]) + ':' + str(dec_dms[2])
     png_name = fits_filename.split('.')[0]
-    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' + ra + ' ' + dec + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' + ra_str + ' ' + dec_str + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
     os.system(cmdstr)
 
 df = findImgs(58.54, -27.6)
