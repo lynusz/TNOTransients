@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 #zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
 #zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
-all_exps = pd.read_csv('exposures.csv')
+all_exps = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/exposures.csv')
 
 
 def get_coadd_cutout(connection, ra, dec, box):
@@ -148,12 +148,12 @@ def main():
     fig, ax = plt.subplots()
     ax.plot(result['dec'], result['ra'], linestyle='None', marker='o')
     ax.ticklabel_format(useOffset=False)
-    plt.savefig('catalog.png')
+    plt.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog.png')
 
     fig, ax = plt.subplots()
     ax.plot(diff_img['dec'], diff_img['ra'], linestyle='None', marker='o')
     ax.ticklabel_format(useOffset=False)
-    plt.savefig('diff_img.png')
+    plt.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img.png')
 
 if __name__ == '__main__':
     main()
