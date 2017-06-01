@@ -50,7 +50,8 @@ def findImgs(ra_in, dec_in):
 
     for index, row in pathlist.iterrows():
         #url = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + str(row['PATH'])
-        download_file(row['PATH'])
+        fits_filename = download_file(row['PATH'])
+        ds9cut(fits_filename, ra_in, dec_in)
 
     return pathlist
 
@@ -77,13 +78,15 @@ def download_file(url):
                 f.write(chunk)
     return local_filename
 
+
+
+def ds9cut(fits_filename, ra, dec, side=5):
+    png_name = fits_filename.split('.')[0]
+    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' + ra + ' ' + dec + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+    os.system(cmdstr)
+
 df = findImgs(58.54, -27.6)
 print "done"
-
-def ds9cut(fits_filename, ra, dec, side):
-    png_name = fits_filename.split('.')[0]
-    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -crop ' + ra + ' ' + dec + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
-    os.system(cmdstr)
 
 #dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
 #os.chdir(dir)
