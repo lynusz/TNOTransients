@@ -37,7 +37,7 @@ def findImgs(ra_in, dec_in):
         #print row
         query = "SELECT PATH FROM PROD.FILE_ARCHIVE_INFO WHERE FILENAME = '"+ str(row['FILENAME']) + "'"
         path = conn_desoper.query_to_pandas(query)
-        path['PATH'] = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'] + "/" + str(row['FILENAME']) + '.fz'
+        path['PATH'] = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'] + "/" + str(row['FILENAME']) #+ '.fz'
         pathlist = pathlist.append(path)
 
     #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
@@ -58,28 +58,36 @@ def findImgs(ra_in, dec_in):
 # MINE https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/finalcut/Y2A1/Y3-2379/20160109/D00509722/p01/red/immaskD00509722_i_c36_r2379p01_immasked.fits.fz
 
 def download_file(url):
-    print url
+
     local_filename = url.split('/')[-5] + ".fits.fz"
     # NOTE the stream=True parameter
-    r = requests.get(url, stream=True, auth=('lzullo', 'lzu70chips'))
+    try:
+        r = requests.get(url, stream=True, auth=('lzullo', 'lzu70chips'))
+        if r.status_code == 404:
+            url = url + '.fz'
+            r = requests.get(url, stream=True, auth=('lzullo', 'lzu70chips'))
+    except:
+        print "THIS IS AN ERROR YO " + str(url)
+
+    print url
     with open(local_filename, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
     return local_filename
 
-#df = findImgs(58.54, -27.6)
-#print "done"
+df = findImgs(58.54, -27.6)
+print "done"
 
 def ds9cut(fits_filename):
     png_name = fits_filename.split('.')[0]
     cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -height 288 -width 288 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
     os.system(cmdstr)
 
-dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
-os.chdir(dir)
-filename = download_file('https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/firstcut/Y4N/20170129-r2843/D00614390/p01/red/immask/D00614390_z_c01_r2843p01_immasked.fits.fz')
-ds9cut(filename)
+#dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
+#os.chdir(dir)
+#filename = download_file('https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/firstcut/Y4N/20170129-r2843/D00614390/p01/red/immask/D00614390_z_c01_r2843p01_immasked.fits.fz')
+#ds9cut(filename)
 
 
 
