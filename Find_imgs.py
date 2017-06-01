@@ -17,6 +17,7 @@ from astropy.io import fits
 ccdWidth = .298   #width of a CCD in degrees
 ccdHeight = .149349   #height of a CCD in degrees
 
+
 def findImgs(ra_in, dec_in):
 
     conn_desoper = ea.connect(section='desoper')
@@ -79,9 +80,9 @@ def download_file(url):
 df = findImgs(58.54, -27.6)
 print "done"
 
-def ds9cut(fits_filename):
+def ds9cut(fits_filename, ra, dec, side):
     png_name = fits_filename.split('.')[0]
-    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -height 288 -width 288 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -crop ' + ra + ' ' + dec + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
     os.system(cmdstr)
 
 #dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
@@ -91,45 +92,52 @@ def ds9cut(fits_filename):
 
 
 
-def cut_fits(fits_filename, ra, dec, box_size):
-    """
-    
-    :param fits_filename: 
-    :param ra: 
-    :param dec: 
-    :param box: length in arcmin of side of box
-    :return: 
-    """
-    hdu_list = fits.open(fits_filename)
 
-    header = hdu_list[0].header
-
-    ra_img_min = header['RACMIN']
-    ra_img_max = header['RACMAX']
-    dec_img_min = header['DECCMIN']
-    dec_img_max = header['DECCMAX']
-
-    # in arcsec/pixel
-    ra_scale = header['PIXSCAL2']
-    dec_scale = header['PIXSCAL1']
-
-    # in deg/pixel
-    ra_scale /= 3600.
-    dec_scale /= 3600.
-
-    box_deg = box_size / 60.
-
-    ra_min = ra - box_deg / 2.
-    ra_max = ra + box_deg / 2.
-
-    dec_min = dec - box_deg / 2.
-    dec_max = dec + box_deg / 2.
-
-    x_min = max(int((ra_min - ra_img_min) / ra_scale), 0)
-    x_max = min(int((ra_max - ra_img_min) / ra_scale), header['NAXIS2'] - 1)
-
-    y_min = max(int((dec_min - dec_img_min) / dec_scale), 0)
-    y_max = min(int((ra_max - ra_img_min) / ra_scale), header['NAXIS2'] - 1)
-
-    image = hdu_list[0].data
-
+# def cut_fits(fits_filename, ra, dec, box_size):
+#     """
+#
+#     :param fits_filename:
+#     :param ra:
+#     :param dec:
+#     :param box: length in arcmin of side of box
+#     :return:
+#     """
+#     hdu_list = fits.open(fits_filename)
+#
+#     header = hdu_list[0].header
+#
+#     ra_img_min = header['RACMIN']
+#     ra_img_max = header['RACMAX']
+#     dec_img_min = header['DECCMIN']
+#     dec_img_max = header['DECCMAX']
+#
+#     # in arcsec/pixel
+#     ra_scale = header['PIXSCAL2']
+#     dec_scale = header['PIXSCAL1']
+#
+#     # in deg/pixel
+#     ra_scale /= 3600.
+#     dec_scale /= 3600.
+#
+#     box_deg = box_size / 60.
+#
+#     ra_min = ra - box_deg / 2.
+#     ra_max = ra + box_deg / 2.
+#
+#     dec_min = dec - box_deg / 2.
+#     dec_max = dec + box_deg / 2.
+#
+#     x_min = max(int((ra_min - ra_img_min) / ra_scale), 0)
+#     x_max = min(int((ra_max - ra_img_min) / ra_scale), header['NAXIS2'] - 1)
+#
+#     y_min = max(int((dec_min - dec_img_min) / dec_scale), 0)
+#     y_max = min(int((dec_max - dec_img_min) / dec_scale), header['NAXIS2'] - 1)
+#
+#     hdu_list[0].data = hdu_list[0].data[x_min:(x_max + 1)][y_min:(y_max + 1)]
+#     if x_min:
+#         header['RACMIN'] = ra_min
+#         header['RAC1'] = ra_min
+#
+#
+#     if y_min:
+#         header['DECCMIN'] = dec_min
