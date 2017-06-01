@@ -47,7 +47,7 @@ def findImgs(ra_in, dec_in):
         pathlist = pathlist.append(path)
 
     #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
-    dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
+    dir = 'FitsFiles'
 
     if not os.path.exists(dir):
         os.mkdir(dir)
@@ -88,8 +88,6 @@ def download_file(url):
 
 
 def ds9cut(fits_filename, ra, dec, side=5):
-
-
     ra_ang = Angle(str(ra) + 'd')
     dec_ang = Angle(str(dec) + 'd')
 
@@ -100,9 +98,9 @@ def ds9cut(fits_filename, ra, dec, side=5):
     cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
                  ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                  dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                 str(side) + ' ' + str(side) + ' wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit')
+                 str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
+                 + str(png_name) + '.png -exit')
     print cmdstr
-
     os.system(cmdstr)
 
 def cleanDir():
@@ -114,7 +112,7 @@ def cleanDir():
     print "Fits files deleted"
 
 
-df = findImgs(58.54, -27.6)
+df = findImgs(75.7, -24.)
 print "done"
 
 #dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
