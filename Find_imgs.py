@@ -13,7 +13,8 @@ import requests
 from astropy.io import fits
 from astropy.coordinates import Angle
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from glob import glob
+
 
 
 ccdWidth = .298   #width of a CCD in degrees
@@ -57,6 +58,8 @@ def findImgs(ra_in, dec_in):
         fits_filename = download_file(row['PATH'])
         ds9cut(fits_filename, ra_in, dec_in)
 
+    cleanDir()
+
     return pathlist
 
 
@@ -86,24 +89,30 @@ def download_file(url):
 
 def ds9cut(fits_filename, ra, dec, side=5):
 
-    c = SkyCoord(ra=ra*u.degree, dec=dec*u.degree)
-
-    print c.ra.hms
-    print c.dec.dms
 
     ra_ang = Angle(str(ra) + 'd')
     dec_ang = Angle(str(dec) + 'd')
 
-    ra_hms = ra_ang.hms
-    dec_dms = dec_ang.dms
-
-    ra_str = str(ra_hms[0]) + ':' + str(ra_hms[1]) + ':' + str(ra_hms[2])
-    dec_str = str(dec_dms[0]) + ':' + str(dec_dms[1]) + ':' + str(dec_dms[2])
+    print ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True)
+    print dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True)
     png_name = fits_filename.split('.')[0]
-    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' + ra_str + ' ' + dec_str + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
-    #cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+
+    cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
+                 ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
+                 dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
+                 str(side) + ' ' + str(side) + ' wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit')
     print cmdstr
+
     os.system(cmdstr)
+
+def cleanDir():
+    filelist = glob("*.fz")
+
+    for file in filelist:
+        os.system('rm -r ' + file)
+
+    print "Fits files deleted"
+
 
 df = findImgs(58.54, -27.6)
 print "done"
