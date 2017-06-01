@@ -280,9 +280,9 @@ def main():
     fig_diff.tight_layout()
     fig_combined.tight_layout()
 
-    fig_cat.savefig('catalog.png')
-    fig_diff.savefig('diff_img.png')
-    fig_combined.savefig('combined.png')
+    fig_cat.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog.png')
+    fig_diff.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img.png')
+    fig_combined.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/combined.png')
 
 if __name__ == '__main__':
     main()

@@ -8,9 +8,9 @@ import urllib
 import wget
 import os
 import requests
-from KBO import compute_chip
-from extendOrbit import getOrbit
-from linkmap import build_kdtree
+#from KBO import compute_chip
+#from extendOrbit import getOrbit
+#from linkmap import build_kdtree
 from astropy.io import fits
 
 
@@ -59,18 +59,29 @@ def findImgs(ra_in, dec_in):
 
 def download_file(url):
     print url
-    local_filename = url.split('/')[-4]
+    local_filename = url.split('/')[-5] + ".fits.fz"
     # NOTE the stream=True parameter
     r = requests.get(url, stream=True, auth=('lzullo', 'lzu70chips'))
     with open(local_filename, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
-                #f.flush() commented by recommendation from J.F.Sebastian
     return local_filename
 
-df = findImgs(58.54, -27.6)
-print "done"
+#df = findImgs(58.54, -27.6)
+#print "done"
+
+def ds9cut(fits_filename):
+    png_name = fits_filename.split('.')[0]
+    cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -height 288 -width 288 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+    os.system(cmdstr)
+
+dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
+os.chdir(dir)
+filename = download_file('https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/firstcut/Y4N/20170129-r2843/D00614390/p01/red/immask/D00614390_z_c01_r2843p01_immasked.fits.fz')
+ds9cut(filename)
+
+
 
 def cut_fits(fits_filename, ra, dec, box_size):
     """
