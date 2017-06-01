@@ -12,6 +12,8 @@ import requests
 #from linkmap import build_kdtree
 from astropy.io import fits
 from astropy.coordinates import Angle
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 
 
 ccdWidth = .298   #width of a CCD in degrees
@@ -44,7 +46,7 @@ def findImgs(ra_in, dec_in):
         pathlist = pathlist.append(path)
 
     #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
-    dir = 'FitsFiles'
+    dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
 
     if not os.path.exists(dir):
         os.mkdir(dir)
@@ -83,6 +85,12 @@ def download_file(url):
 
 
 def ds9cut(fits_filename, ra, dec, side=5):
+
+    c = SkyCoord(ra=ra*u.degree, dec=dec*u.degree)
+
+    print c.ra.hms
+    print c.dec.dms
+
     ra_ang = Angle(str(ra) + 'd')
     dec_ang = Angle(str(dec) + 'd')
 
@@ -93,6 +101,8 @@ def ds9cut(fits_filename, ra, dec, side=5):
     dec_str = str(dec_dms[0]) + ':' + str(dec_dms[1]) + ':' + str(dec_dms[2])
     png_name = fits_filename.split('.')[0]
     cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' + ra_str + ' ' + dec_str + ' ' + str(side) + ' ' + str(side) + 'wcs fk5 -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+    #cmdstr = "ds9x " + str(fits_filename) + ' -scale zscale -scale squared -colorbar no -saveimage ' + str(png_name) + '.png -exit'
+    print cmdstr
     os.system(cmdstr)
 
 df = findImgs(58.54, -27.6)
