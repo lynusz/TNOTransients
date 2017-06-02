@@ -151,16 +151,15 @@ def overlap(df1, df2):
     overlap_index_short = []
     overlap_index_long = []
 
-    diff_img_buds = pd.DataFrame()
+
 
     for index, row in df_long.iterrows():
         if (round(row['ra'], 2), round(row['dec'], 2), row['date']) in df_hash:
             overlap_index_short.append(df_hash[(round(row['ra'], 2), round(row['dec'], 2), row['date'])])
             overlap_index_long.append(index)
-            if row['expnum'] == 581186:
-                diff_img_buds = diff_img_buds.append(row)
 
-    diff_img_buds.to_csv("BuddiesOf581186.csv")
+
+
 
     df_overlap = pd.DataFrame(df_short.ix[overlap_index_short])
     df_short.drop(overlap_index_short, inplace=True)
