@@ -20,10 +20,10 @@ from astropy.wcs import WCS
 
 ccdWidth = .298   #width of a CCD in degrees
 ccdHeight = .149349   #height of a CCD in degrees
-Y4_diff_img = pd.read_csv('/Volumes/lsa-gerdes/wsdiff_catalogs/season240/nofakes/wsdiff_season240_Y4_griz_nofakes.csv')
 
 
-def findImgs(expnumCCD_list):
+
+def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side):
     """
     
     :param expnumCCDs: List of (expnum, ccd) pairs
@@ -35,7 +35,7 @@ def findImgs(expnumCCD_list):
     expnumCCDSet = set(expnumCCD_list)
     desoper = ea.connect(section='desoper')
 
-    query = "SELECT FILENAME, NITE FROM PROD.IMAGE WHERE FILENAME LIKE '%immasked.fits' AND ("
+    query = "SELECT FILENAME, NITE, EXPNUM FROM PROD.IMAGE WHERE FILENAME LIKE '%immasked.fits' AND ("
     for expnum, ccd in expnumCCDSet:
         query += "(EXPNUM = " + str(expnum) + " AND CCDNUM = " + str(ccd) + ") OR "
 
@@ -44,14 +44,14 @@ def findImgs(expnumCCD_list):
     print query
     imglist = desoper.query_to_pandas(query)
 
-    pathlist = pd.DataFrame()
+    pathlist = []
 
     for index, row in imglist.iterrows():
         #print row
         query = "SELECT PATH FROM PROD.FILE_ARCHIVE_INFO WHERE FILENAME = '"+ str(row['FILENAME']) + "'"
         path = desoper.query_to_pandas(query)
-        path['PATH'] = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'] + "/" + str(row['FILENAME'])
-        pathlist = pathlist.append(path)
+        new_path = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'][0] + "/" + str(row['FILENAME']) #+ '.fz'
+        pathlist.append((new_path, row['EXPNUM']))
 
     dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
 
@@ -59,13 +59,14 @@ def findImgs(expnumCCD_list):
         os.mkdir(dir)
     os.chdir(dir)
 
-    for index, row in pathlist.iterrows():
-        fits_filename = download_file(row['PATH'])
+    for elt in pathlist:
+        #url = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + str(row['PATH'])
+        fits_filename = download_file(elt[0])
         # cut_fits(fits_filename)
 
-        ds9cut(fits_filename, 310., -51.)
+        ds9cut(fits_filename, elt[1], ra, dec, cat_list, diff_img_list, both_list, side=side)
 
-    # cleanDir()
+    cleanDir()
 
     return pathlist
 
@@ -131,7 +132,9 @@ def download_file(url):
                 f.write(chunk)
     return local_filename
 
-def ds9cut(fits_filename, ra, dec, side=5):
+def ds9cut(fits_filename, expnum, ra, dec, cat_list, diff_img_list, both_list, side=5):
+    # (ra, dec, expnum)
+
     ra_ang = Angle(str(ra) + 'd')
     dec_ang = Angle(str(dec) + 'd')
 
@@ -139,49 +142,37 @@ def ds9cut(fits_filename, ra, dec, side=5):
     print dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True)
     png_name = fits_filename.split('.')[0]
 
-    ra_min = ra - side
-    ra_max = ra + side
-    dec_min = dec + side
-    dec_max = dec - side
+    cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
+                 ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
+                 dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
+                 str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no')
 
-    detections = 0
+    for elt in cat_list:
+        if elt[2] == expnum:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
 
-    circle_str = ""
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=green"')
+    for elt in diff_img_list:
+        if elt[2] == expnum:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
 
-    for index, row in Y4_diff_img.iterrows():
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=red"')
 
-        ra_obs_angle = Angle(str(row['ra']) + 'd')
-        dec_obs_angle = Angle(str(row['dec']) + 'd')
+    for elt in both_list:
+        if elt[2] == expnum:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
 
-        ra_obs = ra_obs_angle.to_string(unit=u.hour, sep=':', alwayssign=True)
-        dec_obs = dec_obs_angle.to_string(unit=u.degree, sep=':', alwayssign=True)
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=blue"')
 
-        if(ra_min <= row['ra'] <= ra_max and dec_min >= row['dec'] >= dec_max):
-
-            #If there is a detection we want to draw a circle around it
-            detections += 1
-            circle_str += ' fk5; circle ' + str(ra_obs) + ' '+str(dec_obs) + ' 6" #dash=1 '
-
-
-    if detections >= 1:
-        cmdstr = str("ds9x " + str(fits_filename) + circle_str + ' -scale zscale -scale squared -crop ' +
-                     ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
-                     dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                     str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
-                     + str(png_name) + '.png -exit')
-
-
-    # no detections
-    if detections == 0:
-        cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
-                     ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
-                     dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                     str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
-                     + str(png_name) + '.png -exit')
-
+    cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
     print cmdstr
     os.system(cmdstr)
-
 
 def cleanDir():
     filelist = glob("*.fz")
@@ -191,11 +182,9 @@ def cleanDir():
 
     print "Fits files deleted"
 
-
 if __name__ == '__main__':
-    df = findImgs(315, -46)
+    df = findImgs(75.7, -24.)
     print "done"
-
 
 #dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
 #os.chdir(dir)
@@ -204,7 +193,7 @@ if __name__ == '__main__':
 
 
 
-'''
+
 def cut_fits(fits_filename):#, ra_min, ra_max, dec_min, dec_max):
     """
 
@@ -231,7 +220,7 @@ def cut_fits(fits_filename):#, ra_min, ra_max, dec_min, dec_max):
     # in deg/pixel
     ra_scale /= 3600.
     dec_scale /= 3600.
-
+'''
     box_deg = box_size / 60.
 
     ra_min = ra - box_deg / 2.
