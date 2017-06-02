@@ -10,7 +10,7 @@ import Find_imgs
 
 #zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
 #zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
-all_exps = pd.read_csv('exposures.csv')
+all_exps = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/exposures.csv')
 
 
 def get_coadd_cutout(connection, ra, dec, box):

@@ -160,23 +160,18 @@ def ds9cut(fits_filename, ra, dec, side=5):
 
             #If there is a detection we want to draw a circle around it
             detections += 1
+            circle_str += ' fk5; circle ' + str(ra_obs) + ' '+str(dec_obs) + ' 6" #dash=1 '
 
 
-            circle_str += ' fk5; circle ' + str(ra_obs) + ' '+str(dec_obs) +
-                         ' 6" #dash=1 '
-
-            cmdstr = cmdstr + str("ds9x " + str(fits_filename) +  -scale zscale -scale squared -crop ' +
-                         ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
-                         dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                         str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
-                         + str(png_name) + '.png -exit')
-
-
-    #no detections
     if detections >= 1:
-        cmdstr =
+        cmdstr = str("ds9x " + str(fits_filename) + circle_str + ' -scale zscale -scale squared -crop ' +
+                     ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
+                     dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
+                     str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
+                     + str(png_name) + '.png -exit')
 
 
+    # no detections
     if detections == 0:
         cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
                      ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
@@ -184,14 +179,8 @@ def ds9cut(fits_filename, ra, dec, side=5):
                      str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
                      + str(png_name) + '.png -exit')
 
-        print cmdstr
-        os.system(cmdstr)
-
-
-def drawDiffimg(ra_min, ra_max, dec_min, dec_max, fits_filename, side, png_name):
-
-
-
+    print cmdstr
+    os.system(cmdstr)
 
 
 def cleanDir():
