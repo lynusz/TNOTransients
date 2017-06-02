@@ -172,9 +172,12 @@ def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
 
-    ra = ephem.degrees(310.0 * ephem.pi / 180)
-    dec = ephem.degrees(-51.0 * ephem.pi / 180)
-    box = 100.
+    ra_deg = 310.0
+    dec_deg = -51.0
+
+    ra = ephem.degrees(ra_deg * ephem.pi / 180)
+    dec = ephem.degrees(dec_deg * ephem.pi / 180)
+    box = 100.  # arcsec
     season = 240
     # se_df = get_SE_detections(desoper, ra, dec, box)
     # coadd_df = get_coadd_cutout(dessci, ra, dec, box)
@@ -189,16 +192,27 @@ def main():
 
     catalog_df = pd.read_pickle('catalog_df.pickle')
     diff_img_df = pd.read_pickle('diff_img_df.pickle')
+    overlap_df = overlap(diff_img_df, catalog_df)
+
 
     expnumCCD_list = []
+    catalog_list = []
+    diff_img_list = []
+    overlap_list = []
 
     for index, row in catalog_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
+        catalog_list.append((row['ra'], row['dec'], row['expnum']))
 
     for index, row in diff_img_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
+        diff_img_list.append((row['ra'], row['dec'], row['expnum']))
 
-    Find_imgs.findImgs(expnumCCD_list)
+    for index, row in overlap_df.iterrows():
+        expnumCCD_list.append((row['expnum'], row['ccd']))
+        overlap_list.append((row['ra'], row['dec'], row['expnum']))
+
+    Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg, dec_deg, box * 2)
 
 
 

@@ -23,7 +23,7 @@ ccdHeight = .149349   #height of a CCD in degrees
 
 
 
-def findImgs(expnumCCD_list):
+def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side):
     """
     
     :param expnumCCDs: List of (expnum, ccd) pairs
@@ -35,7 +35,7 @@ def findImgs(expnumCCD_list):
     expnumCCDSet = set(expnumCCD_list)
     desoper = ea.connect(section='desoper')
 
-    query = "SELECT FILENAME, NITE FROM PROD.IMAGE WHERE FILENAME LIKE '%immasked.fits' AND ("
+    query = "SELECT FILENAME, NITE, EXPNUM FROM PROD.IMAGE WHERE FILENAME LIKE '%immasked.fits' AND ("
     for expnum, ccd in expnumCCDSet:
         query += "(EXPNUM = " + str(expnum) + " AND CCDNUM = " + str(ccd) + ") OR "
 
@@ -44,14 +44,14 @@ def findImgs(expnumCCD_list):
     print query
     imglist = desoper.query_to_pandas(query)
 
-    pathlist = pd.DataFrame()
+    pathlist = []
 
     for index, row in imglist.iterrows():
         #print row
         query = "SELECT PATH FROM PROD.FILE_ARCHIVE_INFO WHERE FILENAME = '"+ str(row['FILENAME']) + "'"
         path = desoper.query_to_pandas(query)
-        path['PATH'] = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'] + "/" + str(row['FILENAME']) #+ '.fz'
-        pathlist = pathlist.append(path)
+        new_path = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'][0] + "/" + str(row['FILENAME']) #+ '.fz'
+        pathlist.append((new_path, row['EXPNUM']))
 
     #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
     dir = 'FitsFiles'
@@ -60,14 +60,14 @@ def findImgs(expnumCCD_list):
         os.mkdir(dir)
     os.chdir(dir)
 
-    for index, row in pathlist.iterrows():
+    for elt in pathlist:
         #url = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + str(row['PATH'])
-        fits_filename = download_file(row['PATH'])
+        fits_filename = download_file(elt[0])
         # cut_fits(fits_filename)
 
-        ds9cut(fits_filename, 310., -51.)
+        ds9cut(fits_filename, elt[1], ra, dec, cat_list, diff_img_list, both_list, side=side)
 
-    # cleanDir()
+    cleanDir()
 
     return pathlist
 
@@ -138,7 +138,9 @@ def download_file(url):
                 f.write(chunk)
     return local_filename
 
-def ds9cut(fits_filename, ra, dec, side=5):
+def ds9cut(fits_filename, expnum, ra, dec, cat_list, diff_img_list, both_list, side=5):
+    # (ra, dec, expnum)
+
     ra_ang = Angle(str(ra) + 'd')
     dec_ang = Angle(str(dec) + 'd')
 
@@ -149,8 +151,32 @@ def ds9cut(fits_filename, ra, dec, side=5):
     cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
                  ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                  dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                 str(side) + ' ' + str(side) + ' wcs icrs arcmin -colorbar no -zoom to fit -saveimage '
-                 + str(png_name) + '.png -exit')
+                 str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no')
+
+    for elt in cat_list:
+        if elt[2] == expnum:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
+
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=green"')
+    for elt in diff_img_list:
+        if elt[2] == expnum:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
+
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=red"')
+
+    for elt in both_list:
+        if elt[2] == expnum:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
+
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=blue"')
+
+    cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
     print cmdstr
     os.system(cmdstr)
 
