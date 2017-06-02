@@ -6,6 +6,7 @@ import pandas as pd
 import urllib
 
 import os
+import subprocess
 import requests
 #from KBO import compute_chip
 #from extendOrbit import getOrbit
@@ -23,19 +24,21 @@ ccdHeight = .149349   #height of a CCD in degrees
 
 
 
-def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side):
+def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, keep_fits=False):
     """
     
     :param expnumCCDs: List of (expnum, ccd) pairs
     :return: 
     """
+
+
     if not expnumCCD_list:
         return pd.DataFrame()
 
     expnumCCDSet = set(expnumCCD_list)
     desoper = ea.connect(section='desoper')
 
-    query = "SELECT FILENAME, NITE, EXPNUM FROM PROD.IMAGE WHERE FILENAME LIKE '%immasked.fits' AND ("
+    query = "SELECT FILENAME, NITE, EXPNUM, CCDNUM FROM PROD.IMAGE WHERE FILENAME LIKE '%immasked.fits' AND ("
     for expnum, ccd in expnumCCDSet:
         query += "(EXPNUM = " + str(expnum) + " AND CCDNUM = " + str(ccd) + ") OR "
 
@@ -51,7 +54,7 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side):
         query = "SELECT PATH FROM PROD.FILE_ARCHIVE_INFO WHERE FILENAME = '"+ str(row['FILENAME']) + "'"
         path = desoper.query_to_pandas(query)
         new_path = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'][0] + "/" + str(row['FILENAME']) #+ '.fz'
-        pathlist.append((new_path, row['EXPNUM']))
+        pathlist.append((new_path, row['EXPNUM'], row['CCDNUM']))
 
     #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
     dir = 'FitsFiles'
@@ -61,13 +64,13 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side):
     os.chdir(dir)
 
     for elt in pathlist:
-        #url = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + str(row['PATH'])
-        fits_filename = download_file(elt[0])
+        # url = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + str(row['PATH'])
+        fits_filename = download_file(elt[0], elt[1], elt[2])
         # cut_fits(fits_filename)
 
-        ds9cut(fits_filename, elt[1], ra, dec, cat_list, diff_img_list, both_list, side=side)
-
-    cleanDir()
+        ds9cut(fits_filename, elt[1], elt[2], ra, dec, cat_list, diff_img_list, both_list, side=side)
+    if not keep_fits:
+        cleanDir()
 
     return pathlist
 
@@ -119,9 +122,9 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side):
 # TRUE https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/firstcut/Y4N/20170216-r2876/D00621526/p01/red/immask/D00621526_i_c01_r2876p01_immasked.fits.fz
 # MINE https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/finalcut/Y2A1/Y3-2379/20160109/D00509722/p01/red/immaskD00509722_i_c36_r2379p01_immasked.fits.fz
 
-def download_file(url):
+def download_file(url, expnum, ccd):
 
-    local_filename = url.split('/')[-5] + ".fits.fz"
+    local_filename = "Exp_" + str(expnum) + "_ccd_" + str(ccd) + ".fits.fz"
     # NOTE the stream=True parameter
     try:
         r = requests.get(url, stream=True, auth=('lzullo', 'lzu70chips'))
@@ -138,7 +141,8 @@ def download_file(url):
                 f.write(chunk)
     return local_filename
 
-def ds9cut(fits_filename, expnum, ra, dec, cat_list, diff_img_list, both_list, side=5):
+
+def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_list, side=5):
     # (ra, dec, expnum)
 
     ra_ang = Angle(str(ra) + 'd')
@@ -148,28 +152,32 @@ def ds9cut(fits_filename, expnum, ra, dec, cat_list, diff_img_list, both_list, s
     print dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True)
     png_name = fits_filename.split('.')[0]
 
-    cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
+    # subprocess.check_call("export DISPLAY=:1", shell=True)
+    # subprocess.check_call("Xvfb :1 -screen 0 1024x768x16 &", shell=True)
+    cmdstr = str("export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
                  ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                  dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                 str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no')
+                 str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no -grid yes -grid type publication' +
+                 ' -grid system wcs -grid axes type interior -grid axes style 1 -grid format1 d.2 -grid format2 d.2')
+
 
     for elt in cat_list:
-        if elt[2] == expnum:
+        if elt[2] == expnum and elt[3] == ccd:
             ra_elt = Angle(str(elt[0]) + 'd')
             dec_elt = Angle(str(elt[1]) + 'd')
 
             cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
-                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=green"')
+                       + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=green"')
     for elt in diff_img_list:
-        if elt[2] == expnum:
+        if elt[2] == expnum and elt[3] == ccd:
             ra_elt = Angle(str(elt[0]) + 'd')
             dec_elt = Angle(str(elt[1]) + 'd')
 
             cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
-                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=red"')
+                       + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=red"')
 
     for elt in both_list:
-        if elt[2] == expnum:
+        if elt[2] == expnum and elt[3] == ccd:
             ra_elt = Angle(str(elt[0]) + 'd')
             dec_elt = Angle(str(elt[1]) + 'd')
 
@@ -178,7 +186,8 @@ def ds9cut(fits_filename, expnum, ra, dec, cat_list, diff_img_list, both_list, s
 
     cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
     print cmdstr
-    os.system(cmdstr)
+    subprocess.check_call(cmdstr, shell=True)
+    os.system("rm -f /tmp/.X1-lock")
 
 def cleanDir():
     filelist = glob("*.fz")

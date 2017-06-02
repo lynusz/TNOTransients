@@ -202,17 +202,18 @@ def main():
 
     for index, row in catalog_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
-        catalog_list.append((row['ra'], row['dec'], row['expnum']))
+        catalog_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
 
     for index, row in diff_img_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
-        diff_img_list.append((row['ra'], row['dec'], row['expnum']))
+        diff_img_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
 
     for index, row in overlap_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
-        overlap_list.append((row['ra'], row['dec'], row['expnum']))
+        overlap_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
 
-    Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg, dec_deg, box * 2)
+    Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
+                       dec_deg, box * 2, keep_fits=True)
 
 
 
