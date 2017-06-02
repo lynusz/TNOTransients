@@ -4,12 +4,13 @@ import easyaccess as ea
 import ephem
 import numpy as np
 import pandas as pd
-from linkmap import build_kdtree
+# from linkmap import build_kdtree
 import matplotlib.pyplot as plt
+import Find_imgs
 
 #zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
 #zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
-all_exps = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/exposures.csv')
+all_exps = pd.read_csv('exposures.csv')
 
 
 def get_coadd_cutout(connection, ra, dec, box):
@@ -175,114 +176,129 @@ def main():
     dec = ephem.degrees(-51.0 * ephem.pi / 180)
     box = 100.
     season = 240
-    se_df = get_SE_detections(desoper, ra, dec, box)
-    coadd_df = get_coadd_cutout(dessci, ra, dec, box)
+    # se_df = get_SE_detections(desoper, ra, dec, box)
+    # coadd_df = get_coadd_cutout(dessci, ra, dec, box)
+    #
+    # catalog_df = get_transient_detections(se_df, coadd_df, 1)
+    # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+    #
+    # diff_img_df = get_diffimg_cutout(ra, dec, box, season)
+    #
+    # catalog_df.to_pickle('catalog_df.pickle')
+    # diff_img_df.to_pickle('diff_img_df.pickle')
 
-    catalog_df = get_transient_detections(se_df, coadd_df, 1)
-    catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+    catalog_df = pd.read_pickle('catalog_df.pickle')
+    diff_img_df = pd.read_pickle('diff_img_df.pickle')
 
-    diff_img_df = get_diffimg_cutout(ra, dec, box, season)
+    expnumCCD_list = []
 
-    catalog_df.to_pickle('catalog_df.pickle')
-    diff_img_df.to_pickle('diff_img_df.pickle')
+    for index, row in catalog_df.iterrows():
+        expnumCCD_list.append((row['expnum'], row['ccd']))
 
-    fig_cat, ax_cat = plt.subplots(2, 2, sharex='col', sharey='row')
-    fig_diff, ax_diff = plt.subplots(2, 2, sharex='col', sharey='row')
-    fig_combined, ax_combined = plt.subplots(2, 2, sharex='col', sharey='row')
+    for index, row in diff_img_df.iterrows():
+        expnumCCD_list.append((row['expnum'], row['ccd']))
 
-    catalog_df = get_transient_detections(se_df, coadd_df, 1)
-    catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+    Find_imgs.findImgs(expnumCCD_list)
 
-    diff_img_df = get_diffimg_cutout(ra, dec, box, season)
 
-    catalog_df.to_pickle('catalog_df.pickle')
-    diff_img_df.to_pickle('diff_img_df.pickle')
-    diff_img_df.to_csv('diff_img_df.csv')
 
-    overlap_df = overlap(diff_img_df, catalog_df)
-
-    for i in [1, 5, 10, 15]:
-        catalog_df = get_transient_detections(se_df, coadd_df, i)
-        catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
-
-        diff_img_df = get_diffimg_cutout(ra, dec, box, season)
-
-        catalog_df.to_pickle('catalog_df.pickle')
-        diff_img_df.to_pickle('diff_img_df.pickle')
-
-        overlap_df = overlap(diff_img_df, catalog_df)
-
-        print "Catalog Only: ", len(catalog_df)
-        print "Diff Img Only: ", len(diff_img_df)
-        print "Both: ", len(overlap_df)
-
-        print diff_img_df
-
-        if i == 1:
-            j = 0
-            k = 0
-        elif i == 5:
-            j = 0
-            k = 1
-        elif i == 10:
-            j = 1
-            k = 0
-        else:
-            j = 1
-            k = 1
-
-        l_cat, = ax_cat[j, k].plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', marker='o', color='g')
-        l_c_overlap, = ax_cat[j, k].plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', marker='o', color='b')
-        ax_cat[j, k].ticklabel_format(useOffset=False)
-        ax_cat[j, k].grid()
-        ax_cat[j, k].set_title('Threshold = ' + str(i) + '"')
-        if k == 0:
-            ax_cat[j, k].set_ylabel('DEC\n(deg)')
-        if j == 1:
-            ax_cat[j, k].set_xlabel('RA\n(deg)')
-        # plt.savefig('catalog' + str(i) + '.png')
-
-        l_diff, = ax_diff[j, k].plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', marker='o', color='r')
-        l_d_overlap, = ax_diff[j, k].plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', marker='o', color='b')
-        # ax_diff[j, k].ticklabel_format(useOffset=False)
-        ax_diff[j, k].grid()
-        ax_diff[j, k].set_title('Threshold = ' + str(i) + '"')
-        if k == 0:
-            ax_diff[j, k].set_ylabel('DEC\n(deg)')
-        if j == 1:
-            ax_diff[j, k].set_xlabel('RA\n(deg)')
-        # plt.savefig('combined.png')
-
-        l_combined_cat, = ax_combined[j, k].plot(catalog_df['ra'], catalog_df['dec'],
-                                                linestyle='None', marker='o', color='g')
-        l_combined_diff, = ax_combined[j, k].plot(overlap_df['ra'], overlap_df['dec'],
-                                                 linestyle='None', marker='o', color='b', alpha=0.5)
-        l_combined_overlap, = ax_combined[j, k].plot(diff_img_df['ra'], diff_img_df['dec'],
-                                                    linestyle='None', marker='o', color='r')
-        # ax_combined[j, k].ticklabel_format(useOffset=False)
-        ax_combined[j, k].grid()
-        ax_combined[j, k].set_title('Threshold = ' + str(i) + '"')
-        if k == 0:
-            ax_combined[j, k].set_ylabel('DEC\n(deg)')
-        if j == 1:
-            ax_combined[j, k].set_xlabel('RA\n(deg)')
-
-        # plt.savefig('diff_img' + str(i) + '.png')
-        # print ra
-        # print dec
-
-    fig_cat.legend((l_cat, l_c_overlap), ('Catalog Only', 'Both'), 'best')
-    fig_diff.legend((l_diff, l_d_overlap), ('Diff Img Only', 'Both'), 'best')
-    fig_combined.legend((l_combined_cat, l_combined_diff, l_combined_overlap),
-                        ('Catalog Only', 'Diff Img Only', 'Both'), 'best')
-
-    fig_cat.tight_layout()
-    fig_diff.tight_layout()
-    fig_combined.tight_layout()
-
-    fig_cat.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog.png')
-    fig_diff.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img.png')
-    fig_combined.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/combined.png')
+    # fig_cat, ax_cat = plt.subplots(2, 2, sharex='col', sharey='row')
+    # fig_diff, ax_diff = plt.subplots(2, 2, sharex='col', sharey='row')
+    # fig_combined, ax_combined = plt.subplots(2, 2, sharex='col', sharey='row')
+    #
+    # catalog_df = get_transient_detections(se_df, coadd_df, 1)
+    # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+    #
+    # diff_img_df = get_diffimg_cutout(ra, dec, box, season)
+    #
+    # catalog_df.to_pickle('catalog_df.pickle')
+    # diff_img_df.to_pickle('diff_img_df.pickle')
+    # diff_img_df.to_csv('diff_img_df.csv')
+    #
+    # overlap_df = overlap(diff_img_df, catalog_df)
+    #
+    # for i in [1, 5, 10, 15]:
+    #     catalog_df = get_transient_detections(se_df, coadd_df, i)
+    #     catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+    #
+    #     diff_img_df = get_diffimg_cutout(ra, dec, box, season)
+    #
+    #     catalog_df.to_pickle('catalog_df.pickle')
+    #     diff_img_df.to_pickle('diff_img_df.pickle')
+    #
+    #     overlap_df = overlap(diff_img_df, catalog_df)
+    #
+    #     print "Catalog Only: ", len(catalog_df)
+    #     print "Diff Img Only: ", len(diff_img_df)
+    #     print "Both: ", len(overlap_df)
+    #
+    #     print diff_img_df
+    #
+    #     if i == 1:
+    #         j = 0
+    #         k = 0
+    #     elif i == 5:
+    #         j = 0
+    #         k = 1
+    #     elif i == 10:
+    #         j = 1
+    #         k = 0
+    #     else:
+    #         j = 1
+    #         k = 1
+    #
+    #     l_cat, = ax_cat[j, k].plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', marker='o', color='g')
+    #     l_c_overlap, = ax_cat[j, k].plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', marker='o', color='b')
+    #     ax_cat[j, k].ticklabel_format(useOffset=False)
+    #     ax_cat[j, k].grid()
+    #     ax_cat[j, k].set_title('Threshold = ' + str(i) + '"')
+    #     if k == 0:
+    #         ax_cat[j, k].set_ylabel('DEC\n(deg)')
+    #     if j == 1:
+    #         ax_cat[j, k].set_xlabel('RA\n(deg)')
+    #     # plt.savefig('catalog' + str(i) + '.png')
+    #
+    #     l_diff, = ax_diff[j, k].plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', marker='o', color='r')
+    #     l_d_overlap, = ax_diff[j, k].plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', marker='o', color='b')
+    #     # ax_diff[j, k].ticklabel_format(useOffset=False)
+    #     ax_diff[j, k].grid()
+    #     ax_diff[j, k].set_title('Threshold = ' + str(i) + '"')
+    #     if k == 0:
+    #         ax_diff[j, k].set_ylabel('DEC\n(deg)')
+    #     if j == 1:
+    #         ax_diff[j, k].set_xlabel('RA\n(deg)')
+    #     # plt.savefig('combined.png')
+    #
+    #     l_combined_cat, = ax_combined[j, k].plot(catalog_df['ra'], catalog_df['dec'],
+    #                                             linestyle='None', marker='o', color='g')
+    #     l_combined_diff, = ax_combined[j, k].plot(overlap_df['ra'], overlap_df['dec'],
+    #                                              linestyle='None', marker='o', color='b', alpha=0.5)
+    #     l_combined_overlap, = ax_combined[j, k].plot(diff_img_df['ra'], diff_img_df['dec'],
+    #                                                 linestyle='None', marker='o', color='r')
+    #     # ax_combined[j, k].ticklabel_format(useOffset=False)
+    #     ax_combined[j, k].grid()
+    #     ax_combined[j, k].set_title('Threshold = ' + str(i) + '"')
+    #     if k == 0:
+    #         ax_combined[j, k].set_ylabel('DEC\n(deg)')
+    #     if j == 1:
+    #         ax_combined[j, k].set_xlabel('RA\n(deg)')
+    #
+    #     # plt.savefig('diff_img' + str(i) + '.png')
+    #     # print ra
+    #     # print dec
+    #
+    # fig_cat.legend((l_cat, l_c_overlap), ('Catalog Only', 'Both'), 'best')
+    # fig_diff.legend((l_diff, l_d_overlap), ('Diff Img Only', 'Both'), 'best')
+    # fig_combined.legend((l_combined_cat, l_combined_diff, l_combined_overlap),
+    #                     ('Catalog Only', 'Diff Img Only', 'Both'), 'best')
+    #
+    # fig_cat.tight_layout()
+    # fig_diff.tight_layout()
+    # fig_combined.tight_layout()
+    #
+    # fig_cat.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog.png')
+    # fig_diff.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img.png')
+    # fig_combined.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/combined.png')
 
 if __name__ == '__main__':
     main()
