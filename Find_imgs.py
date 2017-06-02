@@ -124,7 +124,7 @@ def ds9cut(fits_filename, ra, dec, side=5):
 
     #no detections
     if detections >= 1:
-        cmdstr = 
+        cmdstr =
 
 
     if detections == 0:
