@@ -24,7 +24,7 @@ ccdHeight = .149349   #height of a CCD in degrees
 
 
 
-def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, keep_fits=False):
+def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, coadd_list=None, keep_fits=False):
     """
     
     :param expnumCCDs: List of (expnum, ccd) pairs
@@ -68,7 +68,8 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, 
         fits_filename = download_file(elt[0], elt[1], elt[2])
         # cut_fits(fits_filename)
 
-        ds9cut(fits_filename, elt[1], elt[2], ra, dec, cat_list, diff_img_list, both_list, side=side)
+        ds9cut(fits_filename, elt[1], elt[2], ra, dec, cat_list,
+               diff_img_list, both_list, coadd_list=coadd_list, side=side)
     if not keep_fits:
         cleanDir()
 
@@ -142,7 +143,7 @@ def download_file(url, expnum, ccd):
     return local_filename
 
 
-def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_list, side=5):
+def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_list, coadd_list=None, side=5):
     # (ra, dec, expnum)
 
     ra_ang = Angle(str(ra) + 'd')
@@ -158,7 +159,7 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
                  ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                  dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
                  str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no -grid yes -grid type publication' +
-                 ' -grid system wcs -grid axes type interior -grid axes style 1 -grid format1 d.2 -grid format2 d.2')
+                 ' -grid system wcs -grid axes type interior -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics vertical no')
 
 
     for elt in cat_list:
@@ -183,6 +184,14 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
 
             cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
                         + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=blue"')
+
+    if coadd_list:
+        for elt in coadd_list:
+            ra_elt = Angle(str(elt[0]) + 'd')
+            dec_elt = Angle(str(elt[1]) + 'd')
+
+            cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
+                       + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=pink"')
 
     cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
     print cmdstr

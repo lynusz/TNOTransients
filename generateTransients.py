@@ -4,7 +4,7 @@ import easyaccess as ea
 import ephem
 import numpy as np
 import pandas as pd
-# from linkmap import build_kdtree
+from linkmap import build_kdtree
 import matplotlib.pyplot as plt
 import Find_imgs
 
@@ -105,10 +105,21 @@ def get_transient_detections(df_SE, df_coadd, threshold):
     :return: dataframe of unmatched SE detections
     '''
     if len(df_SE) and len(df_coadd):
+        df_coadd['ra'] = np.radians(df_coadd['ra'])
+        df_coadd['dec'] = np.radians(df_coadd['dec'])
         tree_coadd = build_kdtree(df_coadd)
+
+        df_SE['ra'] = np.radians(df_SE['ra'])
+        df_SE['dec'] = np.radians(df_SE['dec'])
         tree_SE = build_kdtree(df_SE)
-        near_list = tree_SE.query_ball_tree(tree_coadd, threshold / 3600)  # require 1 arcsec match to a coadd object
+
+        near_list = tree_SE.query_ball_tree(tree_coadd, threshold * np.pi / 648000)  # require 1 arcsec match to a coadd object
         transients = [i for i in range(len(near_list)) if near_list[i] == []]
+        df_coadd['ra'] = np.degrees(df_coadd['ra'])
+        df_coadd['dec'] = np.degrees(df_coadd['dec'])
+        df_SE['ra'] = np.degrees(df_SE['ra'])
+        df_SE['dec'] = np.degrees(df_SE['dec'])
+
         return df_SE.ix[transients]
     else:
         return pd.DataFrame()
@@ -151,16 +162,11 @@ def overlap(df1, df2):
     overlap_index_short = []
     overlap_index_long = []
 
-    diff_img_buds = pd.DataFrame()
-
     for index, row in df_long.iterrows():
-        if (round(row['ra'], 2), round(row['dec'], 2), row['date']) in df_hash:
-            overlap_index_short.append(df_hash[(round(row['ra'], 2), round(row['dec'], 2), row['date'])])
+        if (round(row['ra'], 3), round(row['dec'], 3), row['date']) in df_hash:
+            overlap_index_short.append(df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])])
             overlap_index_long.append(index)
-            if row['expnum'] == 581186:
-                diff_img_buds = diff_img_buds.append(row)
 
-    diff_img_buds.to_csv("BuddiesOf581186.csv")
 
     df_overlap = pd.DataFrame(df_short.ix[overlap_index_short])
     df_short.drop(overlap_index_short, inplace=True)
@@ -181,17 +187,24 @@ def main():
     season = 240
     # se_df = get_SE_detections(desoper, ra, dec, box)
     # coadd_df = get_coadd_cutout(dessci, ra, dec, box)
-    #
-    # catalog_df = get_transient_detections(se_df, coadd_df, 1)
-    # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
-    #
-    # diff_img_df = get_diffimg_cutout(ra, dec, box, season)
-    #
-    # catalog_df.to_pickle('catalog_df.pickle')
-    # diff_img_df.to_pickle('diff_img_df.pickle')
 
-    catalog_df = pd.read_pickle('catalog_df.pickle')
-    diff_img_df = pd.read_pickle('diff_img_df.pickle')
+    # coadd_df.to_pickle('coadd.pickle')
+    # se_df.to_pickle('se.pickle')
+
+    coadd_df = pd.read_pickle('coadd.pickle')
+    se_df = pd.read_pickle('se.pickle')
+
+    catalog_df = get_transient_detections(se_df, coadd_df, 1)
+    catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+
+    diff_img_df = get_diffimg_cutout(ra, dec, box, season)
+
+    catalog_df.to_pickle('catalog_df.pickle')
+    diff_img_df.to_pickle('diff_img_df.pickle')
+
+    # coadd_df = pd.read_pickle('coadd.pickle')
+    # catalog_df = pd.read_pickle('catalog_df.pickle')
+    # diff_img_df = pd.read_pickle('diff_img_df.pickle')
     overlap_df = overlap(diff_img_df, catalog_df)
 
 
@@ -199,6 +212,7 @@ def main():
     catalog_list = []
     diff_img_list = []
     overlap_list = []
+    coadd_list = []
 
     for index, row in catalog_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
@@ -212,8 +226,11 @@ def main():
         expnumCCD_list.append((row['expnum'], row['ccd']))
         overlap_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
 
+    for index, row in coadd_df.iterrows():
+        coadd_list.append((row['ra'], row['dec']))
+
     Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
-                       dec_deg, box * 2, keep_fits=True)
+                       dec_deg, box * 2, coadd_list=coadd_list, keep_fits=False)
 
 
 
