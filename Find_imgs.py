@@ -68,8 +68,8 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, 
         # cut_fits(fits_filename)
 
         ds9cut(fits_filename, elt[1], elt[2], ra, dec, cat_list, diff_img_list, both_list, side=side)
-    if not keep_fits:
-        cleanDir()
+
+    cleanDir()
 
     return pathlist
 
@@ -150,7 +150,7 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
 
     # subprocess.check_call("export DISPLAY=:1", shell=True)
     # subprocess.check_call("Xvfb :1 -screen 0 1024x768x16 &", shell=True)
-    cmdstr = str("export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
+    cmdstr = str("rm -f /tmp/.X1-lock;export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
                  ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                  dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
                  str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no -grid yes -grid type publication' +
@@ -183,7 +183,7 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
     cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
     print cmdstr
     subprocess.check_call(cmdstr, shell=True)
-    os.system("rm -f /tmp/.X1-lock")
+    #os.system("rm -f /tmp/.X1-lock")
 
 def cleanDir():
     filelist = glob("*.fz")
