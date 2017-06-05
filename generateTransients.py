@@ -179,33 +179,30 @@ def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
 
-    ra_deg = 315
-    dec_deg = -41.0
+    ra_deg = 310.
+    dec_deg = -56.0
 
     ra = ephem.degrees(ra_deg * ephem.pi / 180)
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
     box = 100.  # arcsec
-    season = 240
+    season = 250
+
     se_df = get_SE_detections(desoper, ra, dec, box)
     coadd_df = get_coadd_cutout(dessci, ra, dec, box)
-
-    coadd_df.to_pickle('coadd.pickle')
-    se_df.to_pickle('se.pickle')
-
-    coadd_df = pd.read_pickle('coadd.pickle')
-    se_df = pd.read_pickle('se.pickle')
-
     catalog_df = get_transient_detections(se_df, coadd_df, 1)
     catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
-
     diff_img_df = get_diffimg_cutout(ra, dec, box, season)
 
-    catalog_df.to_pickle('catalog_df.pickle')
-    diff_img_df.to_pickle('diff_img_df.pickle')
+    #coadd_df.to_pickle('coadd.pickle')
+    #se_df.to_pickle('se.pickle')
+    #catalog_df.to_pickle('catalog_df.pickle')
+    #diff_img_df.to_pickle('diff_img_df.pickle')
 
-    # coadd_df = pd.read_pickle('coadd.pickle')
+    #coadd_df = pd.read_pickle('coadd.pickle')
+    #se_df = pd.read_pickle('se.pickle')
     # catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
+
     overlap_df = overlap(diff_img_df, catalog_df)
 
 
