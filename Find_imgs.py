@@ -150,7 +150,10 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
 
     # subprocess.check_call("export DISPLAY=:1", shell=True)
     # subprocess.check_call("Xvfb :1 -screen 0 1024x768x16 &", shell=True)
-    cmdstr = str("rm -f /tmp/.X1-lock;export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
+
+    #rm -f /tmp/.X1-lock;export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 &
+
+    cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
                  ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                  dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
                  str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no -grid yes -grid type publication' +
@@ -203,7 +206,7 @@ if __name__ == '__main__':
 #ds9cut(filename)
 
 
-
+'''
 
 def cut_fits(fits_filename):#, ra_min, ra_max, dec_min, dec_max):
     """
@@ -231,7 +234,7 @@ def cut_fits(fits_filename):#, ra_min, ra_max, dec_min, dec_max):
     # in deg/pixel
     ra_scale /= 3600.
     dec_scale /= 3600.
-'''
+
     box_deg = box_size / 60.
 
     ra_min = ra - box_deg / 2.
