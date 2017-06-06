@@ -157,13 +157,15 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
     # subprocess.check_call("export DISPLAY=:1", shell=True)
     # subprocess.check_call("Xvfb :1 -screen 0 1024x768x16 &", shell=True)
 
-    #rm -f /tmp/.X1-lock;export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 &
-
-    cmdstr = str("ds9x " + str(fits_filename) + ' -scale zscale -scale squared -crop ' +
-                 ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
-                 dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' +
-                 str(side) + ' ' + str(side) + ' wcs icrs arcsec -colorbar no -grid yes -grid type publication' +
-                 ' -grid system wcs -grid axes type interior -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics vertical no')
+    cmdstr = ""
+    #cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
+    cmdstr += 'ds9x ' + str(fits_filename) + ' -scale zscale -scale squared'
+    cmdstr += (' -crop ' + ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
+                dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' + str(side) + ' ' + str(side) +
+              ' wcs icrs arcsec')
+    cmdstr += (' -colorbar no -grid yes -grid type publication -grid system wcs -grid axes type interior' +
+               ' -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics' +
+               ' vertical no')
 
 
     for elt in cat_list:

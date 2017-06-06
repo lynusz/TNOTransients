@@ -168,7 +168,6 @@ def overlap(df1, df2):
             overlap_index_short.append(df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])])
             overlap_index_long.append(index)
 
-
     df_overlap = pd.DataFrame(df_short.ix[overlap_index_short])
     df_short.drop(overlap_index_short, inplace=True)
     df_long.drop(overlap_index_long, inplace=True)
@@ -179,13 +178,28 @@ def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
 
-    ra_deg = 310.
-    dec_deg = -56.0
+
+    # ra_deg = 315.1
+    # dec_deg = -44.25
+
+    ra_deg = 312
+    dec_deg = -58
+
 
     ra = ephem.degrees(ra_deg * ephem.pi / 180)
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
-    box = 100.  # arcsec
+    box = 1000.  # arcsec
     season = 250
+
+    #se_df = get_SE_detections(desoper, ra, dec, box)
+    #coadd_df = get_coadd_cutout(dessci, ra, dec, box)
+
+    # coadd_df.to_pickle('coadd.pickle')
+    # se_df.to_pickle('se.pickle')
+
+    #coadd_df = pd.read_pickle('coadd.pickle')
+    #se_df = pd.read_pickle('se.pickle')
+
 
     se_df = get_SE_detections(desoper, ra, dec, box)
     coadd_df = get_coadd_cutout(dessci, ra, dec, box)
@@ -198,19 +212,30 @@ def main():
     #catalog_df.to_pickle('catalog_df.pickle')
     #diff_img_df.to_pickle('diff_img_df.pickle')
 
+
     #coadd_df = pd.read_pickle('coadd.pickle')
     #se_df = pd.read_pickle('se.pickle')
+
     # catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
 
     overlap_df = overlap(diff_img_df, catalog_df)
 
+    print "Catalog Only: ", len(catalog_df)
+    print "Diff Img Only: ", len(diff_img_df)
+    print "Both: ", len(overlap_df)
 
+    # plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker='o')
+    # plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker='o')
+    # plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker='o')
+    # plt.savefig('detections.png')
     expnumCCD_list = []
     catalog_list = []
     diff_img_list = []
     overlap_list = []
     coadd_list = []
+
+
 
     for index, row in catalog_df.iterrows():
         expnumCCD_list.append((row['expnum'], row['ccd']))
