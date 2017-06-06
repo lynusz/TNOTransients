@@ -153,14 +153,12 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
     print dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True)
     png_name = fits_filename.split('.')[0]
 
-    # subprocess.check_call("export DISPLAY=:1", shell=True)
-    # subprocess.check_call("Xvfb :1 -screen 0 1024x768x16 &", shell=True)
     cmdstr = ""
-    cmdstr += 'export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
+    # cmdstr += 'export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
     cmdstr += 'ds9x ' + str(fits_filename) + ' -scale zscale -scale squared'
-    # cmdstr += ('-crop ' + ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
-    #             dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' + str(side) + ' ' + str(side) +
-    #           ' wcs icrs arcsec')
+    cmdstr += (' -crop ' + ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
+                dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' + str(side) + ' ' + str(side) +
+              ' wcs icrs arcsec')
     cmdstr += (' -colorbar no -grid yes -grid type publication -grid system wcs -grid axes type interior' +
                ' -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics' +
                ' vertical no')
@@ -197,7 +195,8 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
             cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=pink"')
 
-    cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
+    cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png'
+    # cmdstr += ' -exit'
     print cmdstr
     subprocess.check_call(cmdstr, shell=True)
     os.system("rm -f /tmp/.X1-lock")

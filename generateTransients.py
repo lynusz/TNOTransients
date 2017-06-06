@@ -8,8 +8,8 @@ from linkmap import build_kdtree
 import matplotlib.pyplot as plt
 import Find_imgs
 
-#zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
-#zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
+zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
+zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
 all_exps = pd.read_csv('exposures.csv')
 
 
@@ -157,7 +157,7 @@ def overlap(df1, df2):
 
     df_hash = {}
     for index, row in df_short.iterrows():
-        df_hash[(round(row['ra'], 2), round(row['dec'], 2), row['date'])] = index
+        df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])] = index
 
     overlap_index_short = []
     overlap_index_long = []
@@ -173,6 +173,33 @@ def overlap(df1, df2):
     return df_overlap
 
 
+def mag_calib(row):
+    '''
+    Calculates the calibrated magnitude from the flux.
+    :param row: object data (as a pandas Series)
+    :return: calibrated magnitude
+    '''
+    try:
+        if row['expnum']<552000: # Y3A1
+            zpt = zeropoints.ix[(zeropoints['expnum']==row['expnum']) & (zeropoints['ccd']==row['ccd'])]
+            mag = zpt['fgcm_zpt'] - 2.5*np.log10(row['flux_auto'])
+        elif 552000<row['expnum']<622400:   # Y4
+            try:
+                if row['ccd'] == -99:
+                    mag = 99
+                else:
+                    zpt = zeropoints_Y4.ix[(zeropoints_Y4['EXPNUM']==row['expnum']) & (zeropoints_Y4['CCDNUM']==row['ccd'])]
+                    mag = -zpt['NewZP'] - 2.5*np.log10(row['flux_auto'])
+            except Exception as oops:
+                print oops
+                print row
+    except KeyError as e:
+        print 'Error, ', e
+#        print row
+        mag = 99
+    return mag
+
+
 def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
@@ -180,42 +207,68 @@ def main():
     # ra_deg = 315.1
     # dec_deg = -44.25
 
-    ra_deg = 310.
-    dec_deg = -56.
+    # ra_deg = 310.
+    # dec_deg = -58.
+
+    # ra_deg = 310.
+    # dec_deg = -46.
+
+    # ra_deg = 307.3
+    # dec_deg = -56.9
+
+    # ra_deg = 307.3
+    # dec_deg = -55.4
+
+    # ra_deg = 308.85
+    # dec_deg = -56.3
+
+    ra_deg = 311.68
+    dec_deg = -56.28
+
 
     ra = ephem.degrees(ra_deg * ephem.pi / 180)
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
-    box = 100.  # arcsec
+    box = 200.  # arcsec
     season = 250
     se_df = get_SE_detections(desoper, ra, dec, box)
     coadd_df = get_coadd_cutout(dessci, ra, dec, box)
 
-    # coadd_df.to_pickle('coadd.pickle')
-    # se_df.to_pickle('se.pickle')
+    coadd_df.to_pickle('coadd.pickle')
+    se_df.to_pickle('se.pickle')
 
-    coadd_df = pd.read_pickle('coadd.pickle')
-    se_df = pd.read_pickle('se.pickle')
+    # coadd_df = pd.read_pickle('coadd.pickle')
+    # se_df = pd.read_pickle('se.pickle')
 
     catalog_df = get_transient_detections(se_df, coadd_df, 1)
     catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
-
     diff_img_df = get_diffimg_cutout(ra, dec, box, season)
 
     catalog_df.to_pickle('catalog_df.pickle')
     diff_img_df.to_pickle('diff_img_df.pickle')
-
+    #
     # catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
+
+    # catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
+    # diff_img_df = pd.read_pickle('diff_img_df_LARGE.pickle')
+
+    # catalog_df['mag'] = catalog_df.apply(mag_calib, axis=1)
+
     overlap_df = overlap(diff_img_df, catalog_df)
 
     print "Catalog Only: ", len(catalog_df)
     print "Diff Img Only: ", len(diff_img_df)
     print "Both: ", len(overlap_df)
 
-    # plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker='o')
-    # plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker='o')
-    # plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker='o')
-    # plt.savefig('detections.png')
+    plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker='o')
+    plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker='o')
+    plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker='o')
+    plt.title("Diff Img vs. Catalog Transients")
+    plt.xlabel("RA\n(deg)")
+    plt.ylabel("DEC\n(deg)")
+    plt.tight_layout()
+
+    plt.savefig('detections_small.png')
     expnumCCD_list = []
     catalog_list = []
     diff_img_list = []
@@ -241,7 +294,6 @@ def main():
 
     Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
                        dec_deg, box * 2, coadd_list=coadd_list, keep_fits=False)
-
 
 
     # fig_cat, ax_cat = plt.subplots(2, 2, sharex='col', sharey='row')
