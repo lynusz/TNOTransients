@@ -13,7 +13,7 @@ for szn in [240, 241, 242, 250]:
 
     diff_df = diffimg(szn)
     plt.figure()
-    plt.plot(diff_df['ra'], diff_df['dec'], linestyle='None', marker='o')
+    plt.plot(diff_df['ra'], diff_df['dec'], linestyle='None', marker=',')
     plt.title("Season " + str(szn))
     plt.xlabel("RA")
     plt.ylabel("DEC")

@@ -122,9 +122,10 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, 
 #     return pathlist
 
 
+# TRUE https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/firstcut/Y4N/20170216-r2876/D00621526/p01/red/immask/D00621526_i_c01_r2876p01_immasked.fits.fz
+# MINE https://desar2.cosmology.illinois.edu/DESFiles/desarchive/OPS/finalcut/Y2A1/Y3-2379/20160109/D00509722/p01/red/immaskD00509722_i_c36_r2379p01_immasked.fits.fz
 
 def download_file(url, expnum, ccd):
-
 
     local_filename = "Exp_" + str(expnum) + "_ccd_" + str(ccd) + ".fits.fz"
     # NOTE the stream=True parameter
