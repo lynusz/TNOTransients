@@ -285,8 +285,17 @@ def drawT_eff(cataloguedf, diffimgdf):
         t_eff_diff.append(float((all_exps.loc[all_exps['expnum'] == row['expnum']]['t_eff']).to_string().split()[1]))
 
     diff_teff['t_eff'] = t_eff_diff
+    t_eff_cat = []
+    for index, row in cat_teff.iterrows():
+        for i in range(row['freq']):
+            t_eff_cat.append(row['t_eff'])
 
-    plt.bar(cat_teff['t_eff'], cat_teff['freq'])
+    t_eff_diff = []
+    for index, row in diff_teff.iterrows():
+        for i in range(row['freq']):
+            t_eff_diff.append(row['t_eff'])
+
+    plt.hist([t_eff_cat, t_eff_diff])
     # plt.bar(diff_teff['t_eff'], diff_teff['freq'], color='r')
     plt.savefig('catalog_teff.png')
 
