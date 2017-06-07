@@ -8,9 +8,10 @@ from linkmap import build_kdtree
 import matplotlib.pyplot as plt
 import Find_imgs
 
-zeropoints = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/fgcm_zeropoints_v2_0.csv')
-zeropoints_Y4 = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/Y4N_zeropoints_03.09.2017.csv')
-all_exps = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/exposures.csv')
+rows_so_far = 0.
+zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
+zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
+all_exps = pd.read_csv('exposures.csv')
 
 
 def get_coadd_cutout(connection, ra, dec, box):
@@ -138,7 +139,7 @@ def get_diffimg_cutout(ra, dec, box, season):
     return raw_diff_img[cut]
 
 
-def overlap(df1, df2):
+def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=False):
     """
     Calculates the overlap between two dataframes on ra and dec and puts those rows in a third dataframe.
     Only puts one row per overlap. Removes those rows from df1 and df2.
@@ -148,30 +149,88 @@ def overlap(df1, df2):
     :type df2: pd.DataFrame
     :return: 
     """
-    if len(df1) > len(df2):
-        df_long = df1
-        df_short = df2
+    df1['ra'] = np.radians(df1['ra'])
+    df1['dec'] = np.radians(df1['dec'])
+    if type(df2) == pd.DataFrame:
+        df_other = df2
+        df2['ra'] = np.radians(df2['ra'])
+        df2['dec'] = np.radians(df2['dec'])
     else:
-        df_long = df2
-        df_short = df1
+        df_other = df1
 
-    df_hash = {}
-    for index, row in df_short.iterrows():
-        df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])] = index
+    tree1 = build_kdtree(df1)
+    tree2 = build_kdtree(df_other)
 
-    overlap_index_short = []
-    overlap_index_long = []
+    near1 = tree1.query_ball_tree(tree2, 1 * np.pi / 648000)
+
+    overlap_index1 = []
+    overlap_index2 = []
+
+    for i in range(len(near1)):
+        if near1[i]:
+            appended = False
+            for j in near1[i]:
+                if datematch:
+                    if df1.iloc[i]['date'] == df_other.iloc[j]['date']:
+                        overlap_index2.append(j)
+                        if not appended:
+                            overlap_index1.append(i)
+                            appended = True
+                elif anti_datematch:
+                    if df1.iloc[i]['date'] == df_other.iloc[j]['date']:
+                        overlap_index2.append(j)
+                        if not appended:
+                            overlap_index1.append(i)
+                            appended = True
+
+                else:
+                    overlap_index2.append(j)
+                    if not appended:
+                        overlap_index1.append(i)
+                        appended = True
+
+    df1['ra'] = np.degrees(df1['ra'])
+    df1['dec'] = np.degrees(df1['dec'])
+    if type(df2) == pd.DataFrame:
+        df2['ra'] = np.degrees(df2['ra'])
+        df2['dec'] = np.degrees(df2['dec'])
+
+    overlap_df = df1.iloc[overlap_index1]
+
+    if dropOverlap:
+        df1.drop(df1.index[overlap_index1], inplace=True)
+        if type(df2) == pd.DataFrame:
+            df2.drop(df2.index[overlap_index2], inplace=True)
+
+    return overlap_df
 
 
-    for index, row in df_long.iterrows():
-        if (round(row['ra'], 3), round(row['dec'], 3), row['date']) in df_hash:
-            overlap_index_short.append(df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])])
-            overlap_index_long.append(index)
+    # if len(df1) > len(df2):
+    #     df_long = df1
+    #     df_short = df2
+    # else:
+    #     df_long = df2
+    #     df_short = df1
+    #
+    # df_hash = {}
+    # for index, row in df_short.iterrows():
+    #     df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])] = index
+    #
+    # overlap_index_short = []
+    # overlap_index_long = []
+    #
+    # for index, row in df_long.iterrows():
+    #     if (round(row['ra'], 3), round(row['dec'], 3), row['date']) in df_hash:
+    #         overlap_index_short.append(df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])])
+    #         overlap_index_long.append(index)
+    #
+    # df_overlap = pd.DataFrame(df_short.ix[overlap_index_short])
+    # df_short.drop(overlap_index_short, inplace=True)
+    # df_long.drop(overlap_index_long, inplace=True)
+    # return df_overlap
 
-    df_overlap = pd.DataFrame(df_short.ix[overlap_index_short])
-    df_short.drop(overlap_index_short, inplace=True)
-    df_long.drop(overlap_index_long, inplace=True)
-    return df_overlap
+def self_overlap(df, dropOverlap=True):
+    return overlap(df, datematch=False, dropOverlap=dropOverlap, anti_datematch=True)
 
 
 def mag_calib(row):
@@ -180,6 +239,8 @@ def mag_calib(row):
     :param row: object data (as a pandas Series)
     :return: calibrated magnitude
     '''
+    global rows_so_far
+    rows_so_far += 1
     try:
         if row['expnum']<552000: # Y3A1
             zpt = zeropoints.ix[(zeropoints['expnum']==row['expnum']) & (zeropoints['ccd']==row['ccd'])]
@@ -190,7 +251,7 @@ def mag_calib(row):
                     mag = 99
                 else:
                     zpt = zeropoints_Y4.ix[(zeropoints_Y4['EXPNUM']==row['expnum']) & (zeropoints_Y4['CCDNUM']==row['ccd'])]
-                    mag = -zpt['NewZP'] - 2.5*np.log10(row['flux_auto'])
+                    mag = -zpt['NewZP'].iloc[0] - 2.5 * np.log10(row['flux_auto'])
             except Exception as oops:
                 print oops
                 print row
@@ -225,7 +286,8 @@ def drawT_eff(cataloguedf, diffimgdf):
 
     diff_teff['t_eff'] = t_eff_diff
 
-    plt.plot(cat_teff['t_eff'], cat_teff['freq'] , linestyle = 'None', marker = 'o')
+    plt.bar(cat_teff['t_eff'], cat_teff['freq'])
+    # plt.bar(diff_teff['t_eff'], diff_teff['freq'], color='r')
     plt.savefig('catalog_teff.png')
 
     print "done"
@@ -234,86 +296,121 @@ def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
 
+    # ra_deg = 315.1
+    # dec_deg = -44.25
 
-    ra_deg = 312
-    dec_deg = -58
+    # ra_deg = 310.
+    # dec_deg = -58.
 
+    # ra_deg = 310.
+    # dec_deg = -46.
+
+    # ra_deg = 307.3
+    # dec_deg = -56.9
+
+    # ra_deg = 307.3
+    # dec_deg = -55.4
+
+    # ra_deg = 308.85
+    # dec_deg = -56.3
+
+    ra_deg = 311.68
+    dec_deg = -56.28
 
 
     ra = ephem.degrees(ra_deg * ephem.pi / 180)
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
-
     box = 100.  # arcsec
-
     season = 250
-
-    #se_df = get_SE_detections(desoper, ra, dec, box)
-    #coadd_df = get_coadd_cutout(dessci, ra, dec, box)
-
-
+    # se_df = get_SE_detections(desoper, ra, dec, box)
+    # coadd_df = get_coadd_cutout(dessci, ra, dec, box)
+    #
+    # coadd_df.to_pickle('coadd.pickle')
+    # se_df.to_pickle('se.pickle')
+    #
     # coadd_df = pd.read_pickle('coadd.pickle')
     # se_df = pd.read_pickle('se.pickle')
 
-
-    #se_df = get_SE_detections(desoper, ra, dec, box)
-    #coadd_df = get_coadd_cutout(dessci, ra, dec, box)
-    #catalog_df = get_transient_detections(se_df, coadd_df, 1)
-    #catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
-    #diff_img_df = get_diffimg_cutout(ra, dec, box, season)
-
-    #catalog_df.to_pickle('catalog_df.pickle')
-    #diff_img_df.to_pickle('diff_img_df.pickle')
+    coadd_df = pd.read_pickle('coadd_LARGE.pickle')
     #
-    catalog_df = pd.read_pickle('catalog_df.pickle')
-    diff_img_df = pd.read_pickle('diff_img_df.pickle')
+    # catalog_df = get_transient_detections(se_df, coadd_df, 1)
+    # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
+    # diff_img_df = get_diffimg_cutout(ra, dec, box, season)
+    #
+    # catalog_df.to_pickle('catalog_df.pickle')
+    # diff_img_df.to_pickle('diff_img_df.pickle')
 
-    drawT_eff(catalog_df,diff_img_df)
+    # catalog_df = pd.read_pickle('catalog_df.pickle')
+    # diff_img_df = pd.read_pickle('diff_img_df.pickle')
 
-    # catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
-    # diff_img_df = pd.read_pickle('diff_img_df_LARGE.pickle')
+    catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
+    diff_img_df = pd.read_pickle('diff_img_df_LARGE.pickle')
 
-    # catalog_df['mag'] = catalog_df.apply(mag_calib, axis=1)
-
-    overlap_df = overlap(diff_img_df, catalog_df)
-
-    print "Catalog Only: ", len(catalog_df)
-    print "Diff Img Only: ", len(diff_img_df)
-    print "Both: ", len(overlap_df)
-
-    plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker='o')
-    plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker='o')
-    plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker='o')
-    plt.title("Diff Img vs. Catalog Transients")
-    plt.xlabel("RA\n(deg)")
-    plt.ylabel("DEC\n(deg)")
-    plt.tight_layout()
-
-    plt.savefig('detections_small.png')
-    expnumCCD_list = []
-    catalog_list = []
-    diff_img_list = []
-    overlap_list = []
-    coadd_list = []
+    drawT_eff(catalog_df, diff_img_df)
 
 
 
-    for index, row in catalog_df.iterrows():
-        expnumCCD_list.append((row['expnum'], row['ccd']))
-        catalog_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
+    # diff_img_df['star_like'] = diff_img_df['spread_model'] + 3 * diff_img_df['spreaderr_model']
+    #
+    # plt.plot(diff_img_df['mag'], diff_img_df['star_like'], linestyle='None', marker='o')
+    # plt.xlabel('Magnitude')
+    # plt.ylabel("SM + 3 * SEM")
+    # plt.title("Starlike Diff_img Detections over Magnitude")
+    # plt.tight_layout()
+    # plt.savefig("Mag_vs_Starlike.png")
 
-    for index, row in diff_img_df.iterrows():
-        expnumCCD_list.append((row['expnum'], row['ccd']))
-        diff_img_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
 
-    for index, row in overlap_df.iterrows():
-        expnumCCD_list.append((row['expnum'], row['ccd']))
-        overlap_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
 
-    for index, row in coadd_df.iterrows():
-        coadd_list.append((row['ra'], row['dec']))
+    # catalog_df['mag'] = catalog_df.apply(lambda row: mag_calib(row), axis=1)
+    # catalog_df['star_like'] = catalog_df['spread_model'] + 3 * catalog_df['spreaderr_model']
+    # print 'star_like column created'
+    # catalog_df = catalog_df[(catalog_df['star_like'] > -0.003) & (catalog_df['star_like'] < 0.003)]
+    # print 'cuts made'
 
-    Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
-                       dec_deg, box * 2, coadd_list=coadd_list, keep_fits=False)
+    # overlap_coadd = overlap(diff_img_df, coadd_df, datematch=False, dropOverlap=True)
+    # selfoverlap_df = self_overlap(catalog_df)
+    #
+    # overlap_df = overlap(diff_img_df, catalog_df)
+    #
+    # print "Catalog Only: ", len(catalog_df)
+    # print "Diff Img Only: ", len(diff_img_df)
+    # print "Both: ", len(overlap_df)
+    # # print "Coadd Matches: ", len(overlap_coadd)
+    # print "Self Overlap: ", len(selfoverlap_df)
+    #
+    # plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker=',')
+    # plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker=',')
+    # plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker=',')
+    # plt.title("Diff Img vs. Catalog Transients")
+    # plt.xlabel("RA\n(deg)")
+    # plt.ylabel("DEC\n(deg)")
+    # plt.tight_layout()
+    #
+    # plt.savefig('detectionsLargeCoaddDI_Removed_Overlap_Cat_Removed.png')
+    #
+    # expnumCCD_list = []
+    # catalog_list = []
+    # diff_img_list = []
+    # overlap_list = []
+    # coadd_list = []
+
+    # for index, row in catalog_df.iterrows():
+    #     expnumCCD_list.append((row['expnum'], row['ccd']))
+    #     catalog_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
+    #
+    # for index, row in diff_img_df.iterrows():
+    #     expnumCCD_list.append((row['expnum'], row['ccd']))
+    #     diff_img_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
+    #
+    # for index, row in overlap_df.iterrows():
+    #     expnumCCD_list.append((row['expnum'], row['ccd']))
+    #     overlap_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
+    #
+    # for index, row in coadd_df.iterrows():
+    #     coadd_list.append((row['ra'], row['dec']))
+    #
+    # Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
+    #                    dec_deg, box * 2, coadd_list=coadd_list, keep_fits=False)
 
 
     # fig_cat, ax_cat = plt.subplots(2, 2, sharex='col', sharey='row')

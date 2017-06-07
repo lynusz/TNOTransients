@@ -56,7 +56,8 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, 
         new_path = 'https://desar2.cosmology.illinois.edu/DESFiles/desarchive/' + path['PATH'][0] + "/" + str(row['FILENAME']) #+ '.fz'
         pathlist.append((new_path, row['EXPNUM'], row['CCDNUM']))
 
-    dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/FitsFiles'
+    #https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
+    dir = 'FitsFiles'
 
     if not os.path.exists(dir):
         os.mkdir(dir)
@@ -75,9 +76,7 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, 
 
     return pathlist
 
-    cleanDir()
 
-    return pathlist
 
 
 # def findImgs(ra_in, dec_in):
@@ -155,11 +154,8 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
     print dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True)
     png_name = fits_filename.split('.')[0]
 
-    # subprocess.check_call("export DISPLAY=:1", shell=True)
-    # subprocess.check_call("Xvfb :1 -screen 0 1024x768x16 &", shell=True)
-
     cmdstr = ""
-    #cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
+    # cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
     cmdstr += 'ds9x ' + str(fits_filename) + ' -scale zscale -scale squared'
     cmdstr += (' -crop ' + ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                 dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' + str(side) + ' ' + str(side) +
@@ -200,10 +196,11 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
             cmdstr += (' -regions command "ICRS;circle(' + ra_elt.to_string(unit=u.hour, sep=':', alwayssign=True)
                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=pink"')
 
-    cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png -exit'
+    cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png'
+    cmdstr += ' -exit'
     print cmdstr
     subprocess.check_call(cmdstr, shell=True)
-    #os.system("rm -f /tmp/.X1-lock")
+    # os.system("rm -f /tmp/.X1-lock")
 
 def cleanDir():
     filelist = glob("*.fz")
