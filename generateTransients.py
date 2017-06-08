@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import Find_imgs
 
 rows_so_far = 0.
-zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
-zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
-all_exps = pd.read_csv('exposures.csv')
+zeropoints = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/fgcm_zeropoints_v2_0.csv')
+zeropoints_Y4 = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/Y4N_zeropoints_03.09.2017.csv')
+all_exps = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/exposures.csv')
 
 
 def get_coadd_cutout(connection, ra, dec, box):
@@ -322,6 +322,7 @@ def main():
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
     box = 100.  # arcsec
     season = 250
+
     # se_df = get_SE_detections(desoper, ra, dec, box)
     # coadd_df = get_coadd_cutout(dessci, ra, dec, box)
     #
@@ -331,7 +332,7 @@ def main():
     # coadd_df = pd.read_pickle('coadd.pickle')
     # se_df = pd.read_pickle('se.pickle')
 
-    coadd_df = pd.read_pickle('coadd_LARGE.pickle')
+    #coadd_df = pd.read_pickle('coadd_LARGE.pickle')
     #
     # catalog_df = get_transient_detections(se_df, coadd_df, 1)
     # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
@@ -343,8 +344,8 @@ def main():
     # catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
 
-    catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
-    diff_img_df = pd.read_pickle('diff_img_df_LARGE.pickle')
+    catalog_df = pd.read_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog_df_LARGE.pickle')
+    diff_img_df = pd.read_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img_df_LARGE.pickle')
 
     drawT_eff(catalog_df, diff_img_df)
 
