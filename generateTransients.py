@@ -285,6 +285,7 @@ def drawT_eff(cataloguedf, diffimgdf):
         t_eff_diff.append(float((all_exps.loc[all_exps['expnum'] == row['expnum']]['t_eff']).to_string().split()[1]))
 
     diff_teff['t_eff'] = t_eff_diff
+
     t_eff_cat = []
     for index, row in cat_teff.iterrows():
         for i in range(row['freq']):
@@ -295,9 +296,25 @@ def drawT_eff(cataloguedf, diffimgdf):
         for i in range(row['freq']):
             t_eff_diff.append(row['t_eff'])
 
-    plt.hist([t_eff_cat, t_eff_diff])
+    bins = np.linspace(0, 1.3, 100)
+
+    tweights = np.ones_like(t_eff_cat) / len(t_eff_cat)
+    plt.hist(t_eff_cat, weights=tweights, alpha=0.5, bins=bins, color='b', label='catalogue', edgecolor='k')
+
+    weights = np.ones_like(t_eff_diff) / len(t_eff_diff)
+    plt.hist(t_eff_diff, weights=weights, alpha=0.5, bins=bins, color='g', label='diffimg', edgecolor='k')
+
+    plt.xlabel("T_effective")
+    plt.ylabel("Percent of Detections")
+    plt.title("Number of Detections vs T_eff")
+
+    plt.legend(loc='upper right')
+
+    plt.show()
+
     # plt.bar(diff_teff['t_eff'], diff_teff['freq'], color='r')
-    plt.savefig('catalog_teff.png')
+    plt.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog_teff.png')
+
 
     print "done"
 
