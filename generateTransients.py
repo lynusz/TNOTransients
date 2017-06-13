@@ -7,6 +7,7 @@ import pandas as pd
 from linkmap import build_kdtree
 import matplotlib.pyplot as plt
 import Find_imgs
+import time
 
 rows_so_far = 0.
 zeropoints = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/fgcm_zeropoints_v2_0.csv')
@@ -43,7 +44,7 @@ def get_coadd_cutout(connection, ra, dec, box):
     return result
 
 
-def get_SE_detections(connection, ra, dec, box):
+def get_SE_detections(connection, ra=None, dec=None, box=None, expnum=None):
     '''
     Gets single-epoch detections in all exposures from year for within a search box.
 
@@ -55,7 +56,7 @@ def get_SE_detections(connection, ra, dec, box):
     :return: dataframe of single-epoch detections.
     '''
 
-    query_Y4 = r"""
+    query = r"""
     with x as (
         select qa.expnum as expnum,
             max(qa.lastchanged_time) as timestamp
@@ -81,12 +82,15 @@ def get_SE_detections(connection, ra, dec, box):
         and o.filename=c.filename
         and
     """
+    if expnum:
+        query += " c.expnum = " + str(expnum)
 
-    ra_deg, dec_deg = np.degrees(ra), np.degrees(dec)
-    box_deg = box / 3600
-    query = (query_Y4 + "o.ra between " + str(ra_deg) + "-" + str(box_deg) + " and " + str(ra_deg)
-             + "+" + str(box_deg) + " and o.dec between " + str(dec_deg) + "-" + str(box_deg) + " and "
-             + str(dec_deg) + "+" + str(box_deg))
+    if ra or dec or box:
+        ra_deg, dec_deg = np.degrees(ra), np.degrees(dec)
+        box_deg = box / 3600
+        query += ("o.ra between " + str(ra_deg) + "-" + str(box_deg) + " and " + str(ra_deg)
+                 + "+" + str(box_deg) + " and o.dec between " + str(dec_deg) + "-" + str(box_deg) + " and "
+                 + str(dec_deg) + "+" + str(box_deg))
 
     result = connection.query_to_pandas(query)
     result.columns = map(str.lower, result.columns)  # convert column names to lowercase
@@ -126,10 +130,15 @@ def get_transient_detections(df_SE, df_coadd, threshold):
         return pd.DataFrame()
 
 
-def get_diffimg_cutout(ra, dec, box, season):
+def get_diffimg_cutout(ra, dec, box, season, path=None):
+    if not path:
+        csv_file = '/Volumes/lsa-gerdes/wsdiff_catalogs'
+    else:
+        csv_file = path
 
-    csv_file = ('/Volumes/lsa-gerdes/wsdiff_catalogs/season' + str(season) +
-                '/nofakes/wsdiff_season' + str(season) + '_Y4_griz_nofakes.csv')
+    csv_file += '/season' + str(season) + '/nofakes/wsdiff_season'\
+                + str(season) + '_Y4_griz_nofakes.csv'
+
     raw_diff_img = pd.read_csv(csv_file)
     ra_deg, dec_deg = np.degrees(ra), np.degrees(dec)
 
@@ -137,6 +146,17 @@ def get_diffimg_cutout(ra, dec, box, season):
     cut = (((float(ra_deg) - box_deg <= raw_diff_img['ra']) & (raw_diff_img['ra'] <= float(ra_deg) + box_deg)) &
            ((float(dec_deg) - box_deg <= raw_diff_img['dec']) & (raw_diff_img['dec'] <= float(dec_deg) + box_deg)))
     return raw_diff_img[cut]
+
+def get_diffimg_season(season, path=None):
+    if not path:
+        csv_file = '/Volumes/lsa-gerdes/wsdiff_catalogs'
+    else:
+        csv_file = path
+
+    csv_file += '/season' + str(season) + '/nofakes/wsdiff_season' \
+                + str(season) + '_Y4_griz_nofakes.csv'
+
+    return pd.read_csv(csv_file)
 
 
 def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=False):
@@ -177,7 +197,7 @@ def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=Fals
                             overlap_index1.append(i)
                             appended = True
                 elif anti_datematch:
-                    if df1.iloc[i]['date'] == df_other.iloc[j]['date']:
+                    if df1.iloc[i]['nite'] != df_other.iloc[j]['nite']:
                         overlap_index2.append(j)
                         if not appended:
                             overlap_index1.append(i)
@@ -203,31 +223,6 @@ def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=Fals
             df2.drop(df2.index[overlap_index2], inplace=True)
 
     return overlap_df
-
-
-    # if len(df1) > len(df2):
-    #     df_long = df1
-    #     df_short = df2
-    # else:
-    #     df_long = df2
-    #     df_short = df1
-    #
-    # df_hash = {}
-    # for index, row in df_short.iterrows():
-    #     df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])] = index
-    #
-    # overlap_index_short = []
-    # overlap_index_long = []
-    #
-    # for index, row in df_long.iterrows():
-    #     if (round(row['ra'], 3), round(row['dec'], 3), row['date']) in df_hash:
-    #         overlap_index_short.append(df_hash[(round(row['ra'], 3), round(row['dec'], 3), row['date'])])
-    #         overlap_index_long.append(index)
-    #
-    # df_overlap = pd.DataFrame(df_short.ix[overlap_index_short])
-    # df_short.drop(overlap_index_short, inplace=True)
-    # df_long.drop(overlap_index_long, inplace=True)
-    # return df_overlap
 
 def self_overlap(df, dropOverlap=True):
     return overlap(df, datematch=False, dropOverlap=dropOverlap, anti_datematch=True)
@@ -296,22 +291,7 @@ def drawT_eff(cataloguedf, diffimgdf):
         for i in range(row['freq']):
             t_eff_diff.append(row['t_eff'])
 
-    bins = np.linspace(0, 1.3, 100)
-
-    tweights = np.ones_like(t_eff_cat) / len(t_eff_cat)
-    plt.hist(t_eff_cat, weights=tweights, alpha=0.5, bins=bins, color='b', label='catalogue', edgecolor='k')
-
-    weights = np.ones_like(t_eff_diff) / len(t_eff_diff)
-    plt.hist(t_eff_diff, weights=weights, alpha=0.5, bins=bins, color='g', label='diffimg', edgecolor='k')
-
-    plt.xlabel("T_effective")
-    plt.ylabel("Percent of Detections")
-    plt.title("Number of Detections vs T_eff")
-
-    plt.legend(loc='upper right')
-
-    plt.show()
-
+    plt.hist([t_eff_cat, t_eff_diff])
     # plt.bar(diff_teff['t_eff'], diff_teff['freq'], color='r')
     plt.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog_teff.png')
 
@@ -322,35 +302,23 @@ def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
 
-    # ra_deg = 315.1
-    # dec_deg = -44.25
-
-    # ra_deg = 310.
-    # dec_deg = -58.
-
-    # ra_deg = 310.
-    # dec_deg = -46.
-
-    # ra_deg = 307.3
-    # dec_deg = -56.9
-
-    # ra_deg = 307.3
-    # dec_deg = -55.4
-
-    # ra_deg = 308.85
-    # dec_deg = -56.3
-
     ra_deg = 311.68
     dec_deg = -56.28
 
 
     ra = ephem.degrees(ra_deg * ephem.pi / 180)
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
-    box = 100.  # arcsec
+    box = 7500.  # arcsec
     season = 250
+    expnum = 578943
 
+    exposure_info = desoper.query_to_pandas('SELECT RADEG, DECDEG FROM PROD.EXPOSURE WHERE ' +
+                                            'EXPNUM = ' + str(expnum))
+    ra, dec = np.radians(exposure_info.RADEG[0]), np.radians(exposure_info.DECDEG[0])
+
+    se_df = get_SE_detections(desoper, expnum=expnum)
     # se_df = get_SE_detections(desoper, ra, dec, box)
-    # coadd_df = get_coadd_cutout(dessci, ra, dec, box)
+    coadd_df = get_coadd_cutout(dessci, ra, dec, box)
     #
     # coadd_df.to_pickle('coadd.pickle')
     # se_df.to_pickle('se.pickle')
@@ -358,41 +326,53 @@ def main():
     # coadd_df = pd.read_pickle('coadd.pickle')
     # se_df = pd.read_pickle('se.pickle')
 
-    #coadd_df = pd.read_pickle('coadd_LARGE.pickle')
+    # coadd_df = pd.read_pickle('coadd_LARGE.pickle')
     #
-    # catalog_df = get_transient_detections(se_df, coadd_df, 1)
+    catalog_df = get_transient_detections(se_df, coadd_df, 1)
     # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
-    # diff_img_df = get_diffimg_cutout(ra, dec, box, season)
-    #
-    # catalog_df.to_pickle('catalog_df.pickle')
+    # diff_img_df = get_diffimg_cutout(ra, dec, box, season, "../wsdiff_catalogs")
+    # diff_img_df = get_diffimg_season(season, "../wsdiff_catalogs")
+
+    catalog_df.to_pickle('catalog_df.pickle')
     # diff_img_df.to_pickle('diff_img_df.pickle')
 
     # catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
 
-    catalog_df = pd.read_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog_df_LARGE.pickle')
-    diff_img_df = pd.read_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img_df_LARGE.pickle')
+    # catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
+    # diff_img_df = pd.read_pickle('diff_img_df_LARGE.pickle')
 
-    drawT_eff(catalog_df, diff_img_df)
-
-
+    # drawT_eff(catalog_df, diff_img_df)
 
     # diff_img_df['star_like'] = diff_img_df['spread_model'] + 3 * diff_img_df['spreaderr_model']
     #
+    # diff_img_df = diff_img_df[(diff_img_df['star_like'] < 0.1) & (diff_img_df['star_like'] > -0.1)]
     # plt.plot(diff_img_df['mag'], diff_img_df['star_like'], linestyle='None', marker='o')
     # plt.xlabel('Magnitude')
     # plt.ylabel("SM + 3 * SEM")
     # plt.title("Starlike Diff_img Detections over Magnitude")
     # plt.tight_layout()
-    # plt.savefig("Mag_vs_Starlike.png")
+    # plt.savefig("Mag_vs_Starlike_Catalog.png")
 
-
-
+    # time1 = time.time()
     # catalog_df['mag'] = catalog_df.apply(lambda row: mag_calib(row), axis=1)
+    # time2 = time.time()
+    # print "Time Elapsed: ", time2 - time1
     # catalog_df['star_like'] = catalog_df['spread_model'] + 3 * catalog_df['spreaderr_model']
+    # catalog_df.to_pickle('catalog_df_LARGE_mag.pickle')
+    # catalog_df = pd.read_pickle('catalog_df_LARGE_mag.pickle')
     # print 'star_like column created'
+    # print catalog_df.head(10)
     # catalog_df = catalog_df[(catalog_df['star_like'] > -0.003) & (catalog_df['star_like'] < 0.003)]
     # print 'cuts made'
+
+    # catalog_df = catalog_df[(catalog_df['star_like'] > -0.1) & (catalog_df['star_like'] < 0.1)]
+    # plt.plot(catalog_df['mag'], catalog_df['star_like'], linestyle='None', marker='o')
+    # plt.xlabel('Magnitude')
+    # plt.ylabel("SM + 3 * SEM")
+    # plt.title("Starlike Catalog Detections over Magnitude")
+    # plt.tight_layout()
+    # plt.savefig("Mag_vs_Starlike_Catalog.png")
 
     # overlap_coadd = overlap(diff_img_df, coadd_df, datematch=False, dropOverlap=True)
     # selfoverlap_df = self_overlap(catalog_df)
@@ -402,19 +382,21 @@ def main():
     # print "Catalog Only: ", len(catalog_df)
     # print "Diff Img Only: ", len(diff_img_df)
     # print "Both: ", len(overlap_df)
-    # # print "Coadd Matches: ", len(overlap_coadd)
+    # print "Coadd Matches: ", len(overlap_coadd)
     # print "Self Overlap: ", len(selfoverlap_df)
     #
-    # plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker=',')
+    #
+    plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker=',')
+    plt.title("Exposure " + str(expnum))
     # plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker=',')
     # plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker=',')
     # plt.title("Diff Img vs. Catalog Transients")
-    # plt.xlabel("RA\n(deg)")
-    # plt.ylabel("DEC\n(deg)")
-    # plt.tight_layout()
+    plt.xlabel("RA\n(deg)")
+    plt.ylabel("DEC\n(deg)")
+    plt.tight_layout()
     #
-    # plt.savefig('detectionsLargeCoaddDI_Removed_Overlap_Cat_Removed.png')
-    #
+    # plt.savefig('detectionsLargeCoadd_DI_Removed_Overlap_Cat_Removed_SpreadCut.png')
+    plt.savefig("exposure" + str(expnum) + ".png")
     # expnumCCD_list = []
     # catalog_list = []
     # diff_img_list = []
@@ -439,6 +421,12 @@ def main():
     # Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
     #                    dec_deg, box * 2, coadd_list=coadd_list, keep_fits=False)
 
+
+if __name__ == '__main__':
+    main()
+
+
+# def codeArchive():
 
     # fig_cat, ax_cat = plt.subplots(2, 2, sharex='col', sharey='row')
     # fig_diff, ax_diff = plt.subplots(2, 2, sharex='col', sharey='row')
@@ -537,6 +525,3 @@ def main():
     # fig_cat.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/catalog.png')
     # fig_diff.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/diff_img.png')
     # fig_combined.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/combined.png')
-
-if __name__ == '__main__':
-    main()
