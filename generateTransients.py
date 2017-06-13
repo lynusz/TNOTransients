@@ -8,6 +8,11 @@ from linkmap import build_kdtree
 import matplotlib.pyplot as plt
 import Find_imgs
 import time
+from ExposureCheck import MPChecker
+from MPCRecord import MPCToTNO
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.coordinates import Angle
 
 rows_so_far = 0.
 zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
@@ -62,7 +67,7 @@ def get_SE_detections(connection, ra=None, dec=None, box=None, expnum=None):
             max(qa.lastchanged_time) as timestamp
         from prod.firstcut_eval qa
         where qa.analyst!='SNQUALITY'
-        and T_EFF > 0.3
+
         group by qa.expnum
     )
     select c.expnum, c.filename,
@@ -80,15 +85,14 @@ def get_SE_detections(connection, ra=None, dec=None, box=None, expnum=None):
         and f.lastchanged_time=x.timestamp
         and f.accepted='True'
         and o.filename=c.filename
-        and
     """
     if expnum:
-        query += " c.expnum = " + str(expnum)
+        query += " and c.expnum = " + str(expnum)
 
     if ra or dec or box:
         ra_deg, dec_deg = np.degrees(ra), np.degrees(dec)
         box_deg = box / 3600
-        query += ("o.ra between " + str(ra_deg) + "-" + str(box_deg) + " and " + str(ra_deg)
+        query += (" and o.ra between " + str(ra_deg) + "-" + str(box_deg) + " and " + str(ra_deg)
                  + "+" + str(box_deg) + " and o.dec between " + str(dec_deg) + "-" + str(box_deg) + " and "
                  + str(dec_deg) + "+" + str(box_deg))
 
@@ -147,6 +151,7 @@ def get_diffimg_cutout(ra, dec, box, season, path=None):
            ((float(dec_deg) - box_deg <= raw_diff_img['dec']) & (raw_diff_img['dec'] <= float(dec_deg) + box_deg)))
     return raw_diff_img[cut]
 
+
 def get_diffimg_season(season, path=None):
     if not path:
         csv_file = '/Volumes/lsa-gerdes/wsdiff_catalogs'
@@ -159,7 +164,7 @@ def get_diffimg_season(season, path=None):
     return pd.read_csv(csv_file)
 
 
-def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=False):
+def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=False, threshold=1):
     """
     Calculates the overlap between two dataframes on ra and dec and puts those rows in a third dataframe.
     Only puts one row per overlap. Removes those rows from df1 and df2.
@@ -181,7 +186,7 @@ def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=Fals
     tree1 = build_kdtree(df1)
     tree2 = build_kdtree(df_other)
 
-    near1 = tree1.query_ball_tree(tree2, 1 * np.pi / 648000)
+    near1 = tree1.query_ball_tree(tree2, threshold * np.pi / 648000)
 
     overlap_index1 = []
     overlap_index2 = []
@@ -296,13 +301,46 @@ def drawT_eff(cataloguedf, diffimgdf):
 
     print "done"
 
+
+def pickle(coadd=None, se=None, catalog=None, diff_img=None):
+    if type(coadd) == pd.DataFrame:
+        coadd.to_pickle('coadd.pickle')
+    if type(se) == pd.DataFrame:
+        se.to_pickle('se.pickle')
+    if type(catalog) == pd.DataFrame:
+        catalog.to_pickle('catalog_df.pickle')
+    if type(diff_img) == pd.DataFrame:
+        diff_img.to_pickle('diff_img_df.pickle')
+
+
+def unpickle(coadd=False, se=False, catalog=False, diff_img=False):
+    """
+
+    :param coadd:
+    :param se:
+    :param catalog:
+    :param diff_img:
+    :return: Tuple of format (coadd, se, catalog, diff_img).
+    """
+    coadd, se, catalog, diff_img = None, None, None, None
+    if coadd:
+        coadd = pd.read_pickle('coadd.pickle')
+    if se:
+        se = pd.read_pickle('se.pickle')
+    if catalog:
+        catalog = pd.read_pickle('catalog_df.pickle')
+    if diff_img:
+        diff_img = pd.read_pickle('diff_img_df')
+
+    return coadd, se, catalog, diff_img
+
+
 def main():
     desoper = ea.connect(section='desoper')
     dessci = ea.connect(section='dessci')
 
-    ra_deg = 311.68
-    dec_deg = -56.28
-
+    ra_deg = 28.5
+    dec_deg = -18.4
 
     ra = ephem.degrees(ra_deg * ephem.pi / 180)
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
@@ -310,35 +348,43 @@ def main():
     season = 250
     expnum = 578943
 
-    exposure_info = desoper.query_to_pandas('SELECT RADEG, DECDEG FROM PROD.EXPOSURE WHERE ' +
+    exposure_info = desoper.query_to_pandas('SELECT RADEG, DECDEG, DATE_OBS FROM PROD.EXPOSURE WHERE ' +
                                             'EXPNUM = ' + str(expnum))
     ra, dec = np.radians(exposure_info.RADEG[0]), np.radians(exposure_info.DECDEG[0])
+    ra_deg, dec_deg = np.degrees(ra), np.degrees(dec)
+    date = exposure_info.DATE_OBS[0]  # type: str
+    date = date.replace('-', '/')
+    date = date.replace('T', ' ')
+    date = date.split('.')[0]
+
+    c = SkyCoord(ra=ra * u.rad, dec=dec * u.rad, frame='icrs')
+    asteroids = MPChecker(str(c.ra.to_string(unit=u.hour, sep=':')),
+                          str(c.dec.to_string(unit=u.degree, sep=':')),
+                          date)#, box=10)
+
+    asteroids = asteroids.rename(columns={'mpcRA': 'ra', 'mpcDec': 'dec'})
+    asteroids.ra = asteroids.ra.apply(MPCToTNO.ra_convert)
+    asteroids.dec = asteroids.dec.apply(MPCToTNO.dec_convert)
+
+    asteroids.ra = asteroids.ra.apply(lambda ra: float(Angle(ra + ' hours').to_string(unit=u.degree, decimal=True)))
+    asteroids.dec = asteroids.dec.apply(lambda dec: float(Angle(dec + ' degrees').to_string(unit=u.degree, decimal=True)))
+
+    assert not asteroids.empty
 
     se_df = get_SE_detections(desoper, expnum=expnum)
     # se_df = get_SE_detections(desoper, ra, dec, box)
     coadd_df = get_coadd_cutout(dessci, ra, dec, box)
-    #
-    # coadd_df.to_pickle('coadd.pickle')
-    # se_df.to_pickle('se.pickle')
-    #
-    # coadd_df = pd.read_pickle('coadd.pickle')
-    # se_df = pd.read_pickle('se.pickle')
 
-    # coadd_df = pd.read_pickle('coadd_LARGE.pickle')
-    #
     catalog_df = get_transient_detections(se_df, coadd_df, 1)
     # catalog_df['date'] = catalog_df['date'].apply(lambda date: str(ephem.date(date)))
     # diff_img_df = get_diffimg_cutout(ra, dec, box, season, "../wsdiff_catalogs")
     # diff_img_df = get_diffimg_season(season, "../wsdiff_catalogs")
 
-    catalog_df.to_pickle('catalog_df.pickle')
+    pickle(catalog=catalog_df)
     # diff_img_df.to_pickle('diff_img_df.pickle')
 
     # catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
-
-    # catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
-    # diff_img_df = pd.read_pickle('diff_img_df_LARGE.pickle')
 
     # drawT_eff(catalog_df, diff_img_df)
 
@@ -352,17 +398,16 @@ def main():
     # plt.tight_layout()
     # plt.savefig("Mag_vs_Starlike_Catalog.png")
 
-    # time1 = time.time()
+
     # catalog_df['mag'] = catalog_df.apply(lambda row: mag_calib(row), axis=1)
-    # time2 = time.time()
-    # print "Time Elapsed: ", time2 - time1
-    # catalog_df['star_like'] = catalog_df['spread_model'] + 3 * catalog_df['spreaderr_model']
+
+    catalog_df['star_like'] = catalog_df['spread_model'] + 3 * catalog_df['spreaderr_model']
     # catalog_df.to_pickle('catalog_df_LARGE_mag.pickle')
     # catalog_df = pd.read_pickle('catalog_df_LARGE_mag.pickle')
-    # print 'star_like column created'
+    print 'star_like column created'
     # print catalog_df.head(10)
-    # catalog_df = catalog_df[(catalog_df['star_like'] > -0.003) & (catalog_df['star_like'] < 0.003)]
-    # print 'cuts made'
+    catalog_df = catalog_df[(catalog_df['star_like'] > -0.0125) & (catalog_df['star_like'] < 0.0125)]
+    print 'cuts made'
 
     # catalog_df = catalog_df[(catalog_df['star_like'] > -0.1) & (catalog_df['star_like'] < 0.1)]
     # plt.plot(catalog_df['mag'], catalog_df['star_like'], linestyle='None', marker='o')
@@ -376,15 +421,20 @@ def main():
     # selfoverlap_df = self_overlap(catalog_df)
     #
     # overlap_df = overlap(diff_img_df, catalog_df)
-    #
-    # print "Catalog Only: ", len(catalog_df)
+
+    both = overlap(catalog_df, asteroids, dropOverlap=True, datematch=False, threshold=4)
+
+    print "Catalog Only: ", len(catalog_df)
     # print "Diff Img Only: ", len(diff_img_df)
     # print "Both: ", len(overlap_df)
     # print "Coadd Matches: ", len(overlap_coadd)
     # print "Self Overlap: ", len(selfoverlap_df)
-    #
-    #
-    plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker=',')
+    print "Asteroid Only: ", len(asteroids)
+    print "Asteroids Found: ", len(both)
+
+    plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker='o')
+    plt.plot(asteroids['ra'], asteroids['dec'], linestyle='None', color='r', marker='o', alpha=0.4)
+    plt.plot(both['ra'], both['dec'], linestyle='None', color='b', marker='o')
     plt.title("Exposure " + str(expnum))
     # plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker=',')
     # plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker=',')
@@ -394,28 +444,29 @@ def main():
     plt.tight_layout()
     #
     # plt.savefig('detectionsLargeCoadd_DI_Removed_Overlap_Cat_Removed_SpreadCut.png')
-    plt.savefig("exposure" + str(expnum) + ".png")
-    # expnumCCD_list = []
-    # catalog_list = []
-    # diff_img_list = []
-    # overlap_list = []
-    # coadd_list = []
+    plt.savefig("exposure" + str(expnum) + "_cut.png")
+    expnumCCD_list = []
+    catalog_list = []
+    diff_img_list = []
+    overlap_list = []
+    coadd_list = []
 
-    # for index, row in catalog_df.iterrows():
-    #     expnumCCD_list.append((row['expnum'], row['ccd']))
-    #     catalog_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
-    #
+
+    for index, row in catalog_df.iterrows():
+        expnumCCD_list.append((row['expnum'], row['ccd']))
+        catalog_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
+
     # for index, row in diff_img_df.iterrows():
     #     expnumCCD_list.append((row['expnum'], row['ccd']))
     #     diff_img_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
     #
-    # for index, row in overlap_df.iterrows():
+    # for index, row in both.iterrows():
     #     expnumCCD_list.append((row['expnum'], row['ccd']))
     #     overlap_list.append((row['ra'], row['dec'], row['expnum'], row['ccd']))
     #
-    # for index, row in coadd_df.iterrows():
-    #     coadd_list.append((row['ra'], row['dec']))
-    #
+    for index, row in asteroids.iterrows():
+        coadd_list.append((row['ra'], row['dec']))
+
     # Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
     #                    dec_deg, box * 2, coadd_list=coadd_list, keep_fits=False)
 
