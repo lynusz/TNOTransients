@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from linkmap import build_kdtree
 import matplotlib.pyplot as plt
+import os
 import Find_imgs
 import time
 
@@ -333,10 +334,10 @@ def main():
     # diff_img_df = get_diffimg_cutout(ra, dec, box, season, "../wsdiff_catalogs")
     # diff_img_df = get_diffimg_season(season, "../wsdiff_catalogs")
 
-    catalog_df.to_pickle('catalog_df.pickle')
+    #catalog_df.to_pickle('catalog_df.pickle')
     # diff_img_df.to_pickle('diff_img_df.pickle')
 
-    # catalog_df = pd.read_pickle('catalog_df.pickle')
+    catalog_df = pd.read_pickle('catalog_df.pickle')
     # diff_img_df = pd.read_pickle('diff_img_df.pickle')
 
     # catalog_df = pd.read_pickle('catalog_df_LARGE.pickle')
@@ -394,7 +395,7 @@ def main():
     plt.xlabel("RA\n(deg)")
     plt.ylabel("DEC\n(deg)")
     plt.tight_layout()
-    #
+    os.chdir("/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/")
     # plt.savefig('detectionsLargeCoadd_DI_Removed_Overlap_Cat_Removed_SpreadCut.png')
     plt.savefig("exposure" + str(expnum) + ".png")
     # expnumCCD_list = []
