@@ -31,7 +31,6 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side, 
     :return: 
     """
 
-
     if not expnumCCD_list:
         return pd.DataFrame()
 
@@ -164,7 +163,6 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
                ' -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics' +
                ' vertical no')
 
-
     for elt in cat_list:
         if elt[2] == expnum and elt[3] == ccd:
             ra_elt = Angle(str(elt[0]) + 'd')
@@ -197,7 +195,7 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
                        + ',' + dec_elt.to_string(unit=u.degree, sep=':', alwayssign=True) + ',10i)#color=pink"')
 
     cmdstr += ' -zoom to fit -saveimage ' + str(png_name) + '.png'
-    cmdstr += ' -exit'
+    # cmdstr += ' -exit'
     print cmdstr
     subprocess.check_call(cmdstr, shell=True)
     # os.system("rm -f /tmp/.X1-lock")
