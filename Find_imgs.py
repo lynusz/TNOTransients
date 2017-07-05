@@ -231,14 +231,15 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
         png_name = fits_filename.split('.')[0]
 
         cmdstr = ""
-        cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
+        # cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
         cmdstr += 'ds9x ' + str(fits_filename) + ' -scale zscale -scale squared'
         cmdstr += (' -crop ' + ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                    dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' + str(side) + ' ' + str(side) +
                    ' wcs icrs arcsec')
-        cmdstr += (' -colorbar no -grid yes -grid type publication -grid system wcs -grid axes type interior' +
-                   ' -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics' +
-                   ' vertical no')
+        cmdstr += ' -colorbar no'
+        # cmdstr += (' -grid yes -grid type publication -grid system wcs -grid axes type interior' +
+        #            ' -grid axes style 1 -grid format1 d.2 -grid format2 d.2 -grid numerics yes -grid numerics' +
+        #            ' vertical no')
 
         for elt in cat_list:
             if elt[2] == expnum and elt[3] == ccd:
@@ -289,7 +290,7 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
                 os.mkdir(folder_name)
             os.system('mv ' + png_name + '.png ' + folder_name + '/' + png_name + '.png')
             os.chdir(folder_name)
-            grab_descut_imgs(ra_ang, dec_ang)
+            # grab_descut_imgs(ra_ang, dec_ang)
             os.chdir('..')
         # os.system("rm -f /tmp/.X1-lock")
 

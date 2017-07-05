@@ -9,7 +9,7 @@ def diffimg(season):
     raw_diff_img = pd.read_csv(csv_file)
     return raw_diff_img
 
-for szn in [240, 241, 242, 250]:
+for szn in [200, 240, 241, 242, 250]:
 
     diff_df = diffimg(szn)
     plt.figure()
@@ -17,5 +17,9 @@ for szn in [240, 241, 242, 250]:
     plt.title("Season " + str(szn))
     plt.xlabel("RA")
     plt.ylabel("DEC")
+    if szn == 200:
+        plt.xlim([300, 400])
+
     plt.savefig("Season" + str(szn) + ".png")
     print "Finished Season " + str(szn)
+
