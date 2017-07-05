@@ -18,9 +18,9 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
 rows_so_far = 0.
-zeropoints = pd.read_csv('fgcm_zeropoints_v2_0.csv')
-zeropoints_Y4 = pd.read_csv('Y4N_zeropoints_03.09.2017.csv')
-all_exps = pd.read_csv('exposures.csv')
+zeropoints = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/fgcm_zeropoints_v2_0.csv')
+zeropoints_Y4 = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/Y4N_zeropoints_03.09.2017.csv')
+all_exps = pd.read_csv('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/exposures.csv')
 
 
 def get_coadd_cutout(connection, ra, dec, box):
@@ -165,7 +165,7 @@ def get_diffimg_season(season, path=None):
     csv_file += '/season' + str(season) + '/nofakes/wsdiff_season' \
                 + str(season) + '_Y4_griz_nofakes.csv'
 
-    return pd.read_csv(csv_file)
+    return pd.read_csv(csv_file, engine='python')
 
 
 def overlap(df1, df2=None, datematch=True, dropOverlap=True, anti_datematch=False, threshold=1):
@@ -378,11 +378,11 @@ def main():
 
     #y4_exps.to_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/y4_pickle')
 
-    s240_df = pd.read_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/y4_pickle')
-    s240_expnums = s240_df['expnum'].drop_duplicates()
+    #s240_df = pd.read_pickle('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/y4_pickle')
+    #s240_expnums = s240_df['expnum'].drop_duplicates()
 
-    ra_deg = 315.39
-    dec_deg = -46.38
+    ra_deg = 315
+    dec_deg = -46
 
     catalogue = 0
     diffimg = 0
@@ -397,7 +397,7 @@ def main():
     dec = ephem.degrees(dec_deg * ephem.pi / 180)
     box = 10000.  # arcsec
     season = 240
-    expnum = 572493
+    expnum = 572126
 
     exposure_info = desoper.query_to_pandas('SELECT RADEG, DECDEG, DATE_OBS FROM PROD.EXPOSURE WHERE ' +
                                             'EXPNUM = ' + str(expnum))
@@ -508,18 +508,24 @@ def main():
     # print bleed_df.head()
     # print len(bleed_df)
 
-    plt.plot(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker=',')
-    plt.plot(asteroids['ra'], asteroids['dec'], linestyle='None', color='r', marker='o', alpha=0.4)
-    plt.plot(asteroid_catalog['ra'], asteroid_catalog['dec'], linestyle='None', color='b', marker='o', alpha=0.4)
-    plt.plot(asteroid_diffimg['ra'], asteroid_diffimg['dec'], linestyle='None', color='y', marker='o', alpha=0.4)
-    # plt.title("Exposure " + str(expnum))
-    plt.plot(diff_img_df['ra'], diff_img_df['dec'], linestyle='None', color='r', marker=',')
-    # plt.plot(overlap_df['ra'], overlap_df['dec'], linestyle='None', color='b', marker=',')
-    # plt.title("Diff Img vs. Catalog Transients")
-    plt.xlabel("RA\n(deg)")
-    plt.ylabel("DEC\n(deg)")
-    plt.tight_layout()
-    plt.savefig('exposure' + str(expnum) + '.png')
+    cat_detect = plt.scatter(catalog_df['ra'], catalog_df['dec'], linestyle='None', color='g', marker='.', s=0.5)
+    diff_detect = plt.scatter(diff_img_df['ra'], diff_img_df['dec'], linestyle='None',color='c', marker='.', s=0.5) #see if any fall in coadd already
+    asteroid_plt = plt.scatter(asteroids['ra'], asteroids['dec'], linestyle='None', color='r', marker='o', alpha=0.4, label='asteroids')
+    cat_asteroid = plt.scatter(asteroid_catalog['ra'], asteroid_catalog['dec'], linestyle='None', color='blue', marker='o', label = 'catalogue')
+    diff_asteroid = plt.scatter(asteroid_diffimg['ra'], asteroid_diffimg['dec'], linestyle='None', color='black', marker='o', label = 'diffimg')
+    cat_diff_asteroid = plt.scatter(astcat_astdiff['ra'], astcat_astdiff['dec'], linestyle='None', color='purple', marker='o', label = 'catdiff')
+
+    plt.legend((cat_detect, diff_detect, asteroid_plt, cat_asteroid, diff_asteroid, cat_diff_asteroid),
+    ('Catalogue', 'DiffImg', 'Asteroids', 'Catalogue Detections', 'Diffimg Detections', 'Catalogue and Diffimg'),
+        scatterpoints=1,
+        loc='lower left',
+        ncol=3,
+        fontsize=8)
+
+    title = "Exposure " + str(expnum)
+    plt.title(title)
+    plt.savefig('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/' + title)
+    print "Saved as " + title
     # plt.savefig('detectionsLarge_0.05_cut_Overlap_Cat_Removed.png')
     #
     # plt.figure()
@@ -556,7 +562,7 @@ def main():
 
     for index, row in asteroids.iterrows():
         asteroid_list.append((row['ra'], row['dec']))
-
+    os.chdir('/Users/lynuszullo/pyOrbfit/Y4_Transient_Search')
     Find_imgs.findImgs(expnumCCD_list, catalog_list, diff_img_list, overlap_list, ra_deg,
                        dec_deg, box * 2, coadd_list=coadd_list, asteroid_list=asteroid_list,
                        keep_fits=False, only_asteroids=True)
