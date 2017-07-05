@@ -55,7 +55,7 @@ def findImgs(expnumCCD_list, cat_list, diff_img_list, both_list, ra, dec, side=5
         pathlist.append((new_path, row['EXPNUM'], row['CCDNUM']))
 
     # https://desar2.cosmology.illinois.edu/DESFiles/desarchive/
-    dir = 'FitsFiles'
+    dir = '/Users/lynuszullo/pyOrbfit/Y4_Transient_Search/Exposures'
 
     if not os.path.exists(dir):
         os.mkdir(dir)
@@ -143,7 +143,7 @@ def descut_convert(ra, dec):
     fits_filenames = glob('*.fits')
     for file in fits_filenames:
         cmdstr = ""
-        cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
+        #cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
         cmdstr += 'ds9x ' + str(file) + ' -scale zscale -scale squared'
         cmdstr += (' -colorbar no')
 
@@ -162,11 +162,13 @@ def fetchFiles(jobid, token):
     req = requests.get(request)
 
     # Checks to see if request is successful
-    while req.status_code != 200:
+    while req.status_code != 200 or req.json()['job_status'] != "SUCCESS":
         time.sleep(0.1)
         req = requests.get(request)
 
     text_file = open('file_list_' + jobid + '.txt', "w")
+
+    json = req.json()
 
     for link in req.json()['links']:
         text_file.write(link + '\n')
@@ -231,7 +233,7 @@ def ds9cut(fits_filename, expnum, ccd, ra, dec, cat_list, diff_img_list, both_li
         png_name = fits_filename.split('.')[0]
 
         cmdstr = ""
-        cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
+        #cmdstr += 'rm -f /tmp/.X1-lock; export DISPLAY=:1; Xvfb :1 -screen 0 1024x768x16 & '
         cmdstr += 'ds9x ' + str(fits_filename) + ' -scale zscale -scale squared'
         cmdstr += (' -crop ' + ra_ang.to_string(unit=u.hour, sep=':', alwayssign=True) + ' ' +
                    dec_ang.to_string(unit=u.degree, sep=':', alwayssign=True) + ' ' + str(side) + ' ' + str(side) +
